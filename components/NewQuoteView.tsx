@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { TruckOption, TruckType, RouteInfo, CustomerInfo } from '@/types/calculator';
 import {
   calculateLogisticsDays,
   calculateTruckRates,
   calculateQuoteBreakdown,
-  parseGoogleMapsUrl,
-  estimateRouteDistance,
   POPULAR_ROUTES,
 } from '@/lib/calculator-engine';
+import {
+  calculateRouteDistance,
+  parseRouteUrl,
+} from '@/lib/google-maps-service';
 import {
   MapPin,
   Truck,
@@ -29,7 +31,8 @@ import {
   Fuel,
   Users,
   Plane,
-  Shield,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 
 export const NewQuoteView: React.FC = () => {
@@ -41,6 +44,8 @@ export const NewQuoteView: React.FC = () => {
   const [mapsUrlInput, setMapsUrlInput] = useState<string>('');
   const [distanceMiles, setDistanceMiles] = useState<number>(1280);
   const [durationHours, setDurationHours] = useState<number>(19.5);
+  const [isCalculatingRoute, setIsCalculatingRoute] = useState<boolean>(false);
+  const [isRealApiActive, setIsRealApiActive] = useState<boolean>(false);
 
   // 2. Customer state
   const [customerName, setCustomerName] = useState<string>('Robert Davis');
@@ -61,6 +66,22 @@ export const NewQuoteView: React.FC = () => {
   React.useEffect(() => {
     setCustomRates(adminRates);
   }, [adminRates]);
+
+  // Recalculate route when pickup/delivery change
+  const triggerRouteCalculation = async (pickup: string, delivery: string) => {
+    if (!pickup || !delivery) return;
+    setIsCalculatingRoute(true);
+    try {
+      const res = await calculateRouteDistance(pickup, delivery);
+      setDistanceMiles(res.distanceMiles);
+      setDurationHours(res.durationHours);
+      setIsRealApiActive(res.isRealApi);
+    } catch (e) {
+      console.warn('Route calculation error', e);
+    } finally {
+      setIsCalculatingRoute(false);
+    }
+  };
 
   const { drivingDays, hotelNights } = useMemo(
     () => calculateLogisticsDays(durationHours),
@@ -103,23 +124,16 @@ export const NewQuoteView: React.FC = () => {
     [routeInfo, truckOption, customRates]
   );
 
-  const handleCalculateRoute = (pickup: string, delivery: string) => {
-    if (!pickup || !delivery) return;
-    const est = estimateRouteDistance(pickup, delivery);
-    setDistanceMiles(est.miles);
-    setDurationHours(est.hours);
-  };
-
-  const handleParseMapsUrl = () => {
+  const handleParseUrl = () => {
     if (!mapsUrlInput) return;
-    const parsed = parseGoogleMapsUrl(mapsUrlInput);
+    const parsed = parseRouteUrl(mapsUrlInput);
     if (parsed && parsed.pickup && parsed.delivery) {
       setPickupAddress(parsed.pickup);
       setDeliveryAddress(parsed.delivery);
-      handleCalculateRoute(parsed.pickup, parsed.delivery);
-      showNotification(`Extracted: ${parsed.pickup} to ${parsed.delivery}`);
+      triggerRouteCalculation(parsed.pickup, parsed.delivery);
+      showNotification(`Extracted route: ${parsed.pickup} to ${parsed.delivery}`);
     } else {
-      showNotification('Could not extract route from Google Maps URL.');
+      showNotification('Could not extract route locations from URL.');
     }
   };
 
@@ -248,15 +262,23 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* LEFT COLUMN: Input Forms */}
         <div className="lg:col-span-7 space-y-6">
-          {/* FR-1 & FR-2: Route Input Card */}
+          {/* Route Input Card */}
           <div className="bg-[#141419] p-6 sm:p-8 rounded-3xl border border-[#22222a] shadow-lg space-y-5">
             <div className="flex items-center justify-between border-b border-[#22222a] pb-4">
               <h2 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wide">
                 <MapPin className="w-4 h-4 text-[#e62329]" />
                 1. Route & Distance Calculation
               </h2>
-              <span className="text-[10px] font-bold text-white bg-[#e62329] px-2.5 py-1 rounded-full uppercase">
-                Google Directions API
+              <span className="text-[10px] font-bold text-white bg-[#e62329] px-2.5 py-1 rounded-full uppercase flex items-center gap-1">
+                {isCalculatingRoute ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" /> Calculating...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3 h-3" /> Live Distance Engine
+                  </>
+                )}
               </span>
             </div>
 
@@ -271,7 +293,7 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
                   value={pickupAddress}
                   onChange={(e) => {
                     setPickupAddress(e.target.value);
-                    handleCalculateRoute(e.target.value, deliveryAddress);
+                    triggerRouteCalculation(e.target.value, deliveryAddress);
                   }}
                   placeholder="e.g. New York, NY"
                   className="w-full px-3.5 py-2.5 bg-[#0b0b0e] border border-[#22222a] rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#e62329]"
@@ -287,7 +309,7 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
                   value={deliveryAddress}
                   onChange={(e) => {
                     setDeliveryAddress(e.target.value);
-                    handleCalculateRoute(pickupAddress, e.target.value);
+                    triggerRouteCalculation(pickupAddress, e.target.value);
                   }}
                   placeholder="e.g. Miami, FL"
                   className="w-full px-3.5 py-2.5 bg-[#0b0b0e] border border-[#22222a] rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#e62329]"
@@ -295,10 +317,10 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
               </div>
             </div>
 
-            {/* Google Maps URL Paste */}
+            {/* Paste Directions Link */}
             <div className="pt-1">
               <label className="block text-[11px] font-semibold text-zinc-400 mb-1">
-                OR Paste Google Maps Directions URL
+                OR Paste Route Directions Link
               </label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -307,13 +329,13 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
                     type="text"
                     value={mapsUrlInput}
                     onChange={(e) => setMapsUrlInput(e.target.value)}
-                    placeholder="https://www.google.com/maps/dir/..."
+                    placeholder="Paste route URL..."
                     className="w-full pl-9 pr-3 py-2 bg-[#0b0b0e] border border-[#22222a] rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#e62329]"
                   />
                 </div>
                 <button
                   type="button"
-                  onClick={handleParseMapsUrl}
+                  onClick={handleParseUrl}
                   className="px-4 py-2 bg-[#e62329] text-white text-xs font-black rounded-xl hover:bg-[#cc1b21] transition-colors uppercase"
                 >
                   Extract
@@ -344,7 +366,7 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
               </div>
             </div>
 
-            {/* Calculated Distance & Driving Logistics Display */}
+            {/* Distance & Driving Logistics Display */}
             <div className="p-4 bg-[#0b0b0e] text-white rounded-2xl border border-[#22222a] grid grid-cols-2 sm:grid-cols-4 gap-4 shadow-lg">
               <div>
                 <span className="text-[10px] uppercase font-bold text-zinc-400 block">Distance</span>
@@ -393,7 +415,7 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
             </div>
           </div>
 
-          {/* FR-3 & FR-4: Truck Selection & Provider Comparison Card */}
+          {/* Truck Selection & Provider Comparison */}
           <div className="bg-[#141419] p-6 sm:p-8 rounded-3xl border border-[#22222a] shadow-lg space-y-5">
             <div className="flex items-center justify-between border-b border-[#22222a] pb-4">
               <h2 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wide">
@@ -462,7 +484,6 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* U-Haul card */}
                 <div
                   onClick={() => setProviderOverride('U-Haul')}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer ${
@@ -489,7 +510,6 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
                   )}
                 </div>
 
-                {/* Penske card */}
                 <div
                   onClick={() => setProviderOverride('Penske')}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer ${
