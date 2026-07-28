@@ -27,6 +27,14 @@ export interface TruckOption {
   uhaulRatePerTruck: number;
   penskeRatePerTruck: number;
   selectedProvider: 'U-Haul' | 'Penske';
+  totalWeight?: number; // Total load weight in lbs
+  numberOfMovers?: number; // Number of movers for loading/unloading
+  loadHours?: number; // Calculated load hours
+  unloadHours?: number; // Calculated unload hours
+  trucksNeededFromWeight?: number; // Auto-calculated from weight (8000 lbs per truck)
+  isWeightBased?: boolean; // Whether truck count is determined by weight
+  isManualRental?: boolean; // Whether rental price is manually entered
+  manualRentalPrice?: number; // Manual rental price per truck (overrides auto-calculation)
 }
 
 export interface AdminRates {
@@ -36,17 +44,20 @@ export interface AdminRates {
   driverPayPerMile: number; // e.g. 0.50
   loadingCost: number; // e.g. 600
   unloadingCost: number; // e.g. 600
-  flightDefaultCost: number; // e.g. 300
+  flightDefaultCost: number; // e.g. 300 (now per driver/truck)
   profitMarginPercent: number; // e.g. 30 (for 1.30)
+  hoursPerDrivingDay: number; // e.g. 11 (max hours per driving day)
 }
 
 export interface QuoteBreakdown {
   driverPay: number;
   fuelCost: number;
   hotelCost: number;
-  laborCost: number; // loading + unloading
+  laborCost: number; // loading + unloading (or hired help)
   loadingCost: number;
   unloadingCost: number;
+  hiredHelpCost?: number; // Optional hired help cost
+  useHiredHelp?: boolean; // Whether hired help is used for unloading
   flightCost: number;
   truckRentalCost: number;
   subtotal: number;

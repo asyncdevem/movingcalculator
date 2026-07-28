@@ -13,6 +13,9 @@ import {
   calculateRouteDistance,
   parseRouteUrl,
 } from '@/lib/google-maps-service';
+import { GoogleMapsSelector } from '@/components/GoogleMapsSelector';
+import { WeightCalculator } from '@/components/WeightCalculator';
+import { FlightPriceFetcher } from '@/components/FlightPriceFetcher';
 import {
   MapPin,
   Truck,
@@ -59,6 +62,25 @@ export const NewQuoteView: React.FC = () => {
   const [truckCount, setTruckCount] = useState<number>(1);
   const [providerOverride, setProviderOverride] = useState<'U-Haul' | 'Penske' | 'Auto'>('Auto');
 
+  // 3b. Weight-based calculations state
+  const [totalWeight, setTotalWeight] = useState<number>(0);
+  const [numberOfMovers, setNumberOfMovers] = useState<number>(4);
+  const [loadHours, setLoadHours] = useState<number>(0);
+  const [unloadHours, setUnloadHours] = useState<number>(0);
+  const [useWeightBasedTrucks, setUseWeightBasedTrucks] = useState<boolean>(false);
+
+  // 3c. Manual rental price override
+  const [isManualRental, setIsManualRental] = useState<boolean>(false);
+  const [manualRentalPrice, setManualRentalPrice] = useState<number>(0);
+
+  // 3d. Hired help option
+  const [useHiredHelp, setUseHiredHelp] = useState<boolean>(false);
+  const [hiredHelpCost, setHiredHelpCost] = useState<number>(0);
+
+  // 3e. Flight price state
+  const [flightPricePerDriver, setFlightPricePerDriver] = useState<number>(0);
+  const [isRealFlightPrice, setIsRealFlightPrice] = useState<boolean>(false);
+
   // 4. Rate Overrides (collapsible section)
   const [showOverrides, setShowOverrides] = useState<boolean>(false);
   const [customRates, setCustomRates] = useState(adminRates);
@@ -66,6 +88,22 @@ export const NewQuoteView: React.FC = () => {
   React.useEffect(() => {
     setCustomRates(adminRates);
   }, [adminRates]);
+
+  // Update custom rates with flight price when it changes
+  React.useEffect(() => {
+    if (flightPricePerDriver > 0) {
+      setCustomRates(prev => ({
+        ...prev,
+        flightDefaultCost: flightPricePerDriver,
+      }));
+    } else {
+      // Reset to admin default if no flight price set
+      setCustomRates(prev => ({
+        ...prev,
+        flightDefaultCost: adminRates.flightDefaultCost,
+      }));
+    }
+  }, [flightPricePerDriver, adminRates.flightDefaultCost]);
 
   // Recalculate route when pickup/delivery change
   const triggerRouteCalculation = async (pickup: string, delivery: string) => {
@@ -84,8 +122,8 @@ export const NewQuoteView: React.FC = () => {
   };
 
   const { drivingDays, hotelNights } = useMemo(
-    () => calculateLogisticsDays(durationHours),
-    [durationHours]
+    () => calculateLogisticsDays(durationHours, customRates.hoursPerDrivingDay),
+    [durationHours, customRates.hoursPerDrivingDay]
   );
 
   const { uhaulRate, penskeRate, recommended } = useMemo(
@@ -115,13 +153,40 @@ export const NewQuoteView: React.FC = () => {
       uhaulRatePerTruck: uhaulRate,
       penskeRatePerTruck: penskeRate,
       selectedProvider,
+      totalWeight: totalWeight > 0 ? totalWeight : undefined,
+      numberOfMovers: totalWeight > 0 ? numberOfMovers : undefined,
+      loadHours: totalWeight > 0 ? loadHours : undefined,
+      unloadHours: totalWeight > 0 ? unloadHours : undefined,
+      isWeightBased: useWeightBasedTrucks,
+      isManualRental,
+      manualRentalPrice: isManualRental ? manualRentalPrice : undefined,
     }),
-    [truckType, truckCount, uhaulRate, penskeRate, selectedProvider]
+    [truckType, truckCount, uhaulRate, penskeRate, selectedProvider, totalWeight, numberOfMovers, loadHours, unloadHours, useWeightBasedTrucks, isManualRental, manualRentalPrice]
   );
 
+  // Handler for weight calculation updates
+  const handleWeightCalculationUpdate = (trucks: number, load: number, unload: number) => {
+    setLoadHours(load);
+    setUnloadHours(unload);
+    if (useWeightBasedTrucks) {
+      setTruckCount(trucks);
+    }
+  };
+
+  // Handler for flight price updates from FlightPriceFetcher
+  const handleFlightPriceUpdate = (pricePerDriver: number, isRealPrice: boolean) => {
+    setFlightPricePerDriver(pricePerDriver);
+    setIsRealFlightPrice(isRealPrice);
+    showNotification(
+      isRealPrice 
+        ? `Real-time flight price loaded: $${pricePerDriver}/driver` 
+        : `Using estimated flight price: $${pricePerDriver}/driver`
+    );
+  };
+
   const breakdown = useMemo(
-    () => calculateQuoteBreakdown(routeInfo, truckOption, customRates),
-    [routeInfo, truckOption, customRates]
+    () => calculateQuoteBreakdown(routeInfo, truckOption, customRates, hiredHelpCost, useHiredHelp),
+    [routeInfo, truckOption, customRates, hiredHelpCost, useHiredHelp]
   );
 
   const handleParseUrl = () => {
@@ -166,8 +231,8 @@ export const NewQuoteView: React.FC = () => {
     return saved;
   };
 
-  const handlePrint = () => {
-    const saved = handleSave();
+  const handlePrint = async () => {
+    const saved = await handleSave();
     setActiveQuoteForPrint(saved);
   };
 
@@ -343,6 +408,30 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
               </div>
             </div>
 
+            {/* Interactive Map Selector */}
+            <div className="pt-1">
+              <label className="block text-[11px] font-semibold text-zinc-400 mb-2">
+                OR Use Interactive Map
+              </label>
+              <GoogleMapsSelector
+                pickupAddress={pickupAddress}
+                deliveryAddress={deliveryAddress}
+                onPickupChange={(address) => {
+                  setPickupAddress(address);
+                  triggerRouteCalculation(address, deliveryAddress);
+                }}
+                onDeliveryChange={(address) => {
+                  setDeliveryAddress(address);
+                  triggerRouteCalculation(pickupAddress, address);
+                }}
+                onRouteCalculated={(distance, duration) => {
+                  setDistanceMiles(distance);
+                  setDurationHours(duration);
+                  showNotification(`Route calculated: ${distance} miles, ${duration} hours`);
+                }}
+              />
+            </div>
+
             {/* Quick preset route chips */}
             <div>
               <span className="text-[11px] font-bold text-zinc-400 block mb-2 uppercase tracking-wider">
@@ -441,19 +530,33 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5 uppercase">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5 uppercase flex items-center gap-2">
                   Number of Trucks Required
+                  {useWeightBasedTrucks && totalWeight > 0 && (
+                    <span className="text-[9px] font-black bg-[#e62329] text-white px-2 py-0.5 rounded-full">
+                      AUTO FROM WEIGHT
+                    </span>
+                  )}
                 </label>
                 <select
                   value={truckCount}
-                  onChange={(e) => setTruckCount(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 bg-[#0b0b0e] border border-[#22222a] rounded-xl text-xs font-black text-[#e62329] focus:outline-none focus:ring-2 focus:ring-[#e62329]"
+                  onChange={(e) => {
+                    setTruckCount(Number(e.target.value));
+                    setUseWeightBasedTrucks(false);
+                  }}
+                  disabled={useWeightBasedTrucks && totalWeight > 0}
+                  className="w-full px-3.5 py-2.5 bg-[#0b0b0e] border border-[#22222a] rounded-xl text-xs font-black text-[#e62329] focus:outline-none focus:ring-2 focus:ring-[#e62329] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value={1}>1 Truck</option>
                   <option value={2}>2 Trucks (x2 Multiplier)</option>
                   <option value={3}>3 Trucks (x3 Multiplier)</option>
                   <option value={4}>4 Trucks (x4 Multiplier)</option>
                 </select>
+                {useWeightBasedTrucks && totalWeight > 0 && (
+                  <p className="text-[10px] text-zinc-400 mt-1">
+                    Automatically set from weight calculation. Clear weight to manually select.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -537,7 +640,140 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
                 </div>
               </div>
             </div>
+
+            {/* Manual Rental Price Override */}
+            <div className="pt-4 border-t border-[#22222a] space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-zinc-300 uppercase">Rental Pricing Mode</label>
+                <div className="flex gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setIsManualRental(false)}
+                    className={`px-3 py-1 rounded-lg font-bold uppercase transition-all ${
+                      !isManualRental ? 'bg-[#e62329] text-white' : 'bg-[#0b0b0e] text-zinc-400 hover:bg-[#1f1f27]'
+                    }`}
+                  >
+                    Auto Calculate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsManualRental(true)}
+                    className={`px-3 py-1 rounded-lg font-bold uppercase transition-all ${
+                      isManualRental ? 'bg-[#e62329] text-white' : 'bg-[#0b0b0e] text-zinc-400 hover:bg-[#1f1f27]'
+                    }`}
+                  >
+                    Manual Entry
+                  </button>
+                </div>
+              </div>
+
+              {isManualRental && (
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5 uppercase">
+                    Enter Rental Price per Truck
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-3 text-zinc-400 text-xs font-bold">$</span>
+                    <input
+                      type="number"
+                      value={manualRentalPrice || ''}
+                      onChange={(e) => setManualRentalPrice(Math.max(0, Number(e.target.value)))}
+                      placeholder="e.g. 1250"
+                      className="w-full pl-7 pr-3.5 py-2.5 bg-[#0b0b0e] border-2 border-[#e62329] rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#e62329]"
+                    />
+                  </div>
+                  <p className="text-[10px] text-zinc-400 mt-1">
+                    Total rental cost: ${(manualRentalPrice * truckCount).toLocaleString()} ({truckCount} truck{truckCount > 1 ? 's' : ''})
+                  </p>
+                </div>
+              )}
+
+              {!isManualRental && (
+                <p className="text-[10px] text-zinc-400 italic">
+                  Using auto-calculated {selectedProvider} rate: ${(selectedProvider === 'U-Haul' ? uhaulRate : penskeRate).toLocaleString()}/truck
+                </p>
+              )}
+            </div>
           </div>
+
+          {/* Weight-Based Calculator Section */}
+          <WeightCalculator
+            totalWeight={totalWeight}
+            numberOfMovers={numberOfMovers}
+            onWeightChange={(weight) => {
+              setTotalWeight(weight);
+              if (weight > 0) {
+                setUseWeightBasedTrucks(true);
+              }
+            }}
+            onMoverCountChange={setNumberOfMovers}
+            onCalculationUpdate={handleWeightCalculationUpdate}
+          />
+
+          {/* Hired Help Option Section */}
+          <div className="bg-[#141419] p-6 sm:p-8 rounded-3xl border border-[#22222a] shadow-lg space-y-4">
+            <div className="flex items-center justify-between border-b border-[#22222a] pb-4">
+              <h2 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wide">
+                <Users className="w-4 h-4 text-[#e62329]" />
+                Labor Options
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 bg-[#0b0b0e] rounded-xl border border-[#22222a]">
+                <input
+                  type="checkbox"
+                  id="useHiredHelp"
+                  checked={useHiredHelp}
+                  onChange={(e) => setUseHiredHelp(e.target.checked)}
+                  className="w-5 h-5 rounded border-[#22222a] bg-[#0b0b0e] text-[#e62329] focus:ring-2 focus:ring-[#e62329]"
+                />
+                <label htmlFor="useHiredHelp" className="flex-1">
+                  <span className="block text-xs font-bold text-white uppercase">Use Hired Help for Unloading</span>
+                  <span className="block text-[10px] text-zinc-400 mt-0.5">
+                    Customer hires local help at destination instead of company unloading
+                  </span>
+                </label>
+              </div>
+
+              {useHiredHelp && (
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5 uppercase">
+                    Hired Help Cost (Total)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-3 text-zinc-400 text-xs font-bold">$</span>
+                    <input
+                      type="number"
+                      value={hiredHelpCost || ''}
+                      onChange={(e) => setHiredHelpCost(Math.max(0, Number(e.target.value)))}
+                      placeholder="e.g. 400"
+                      className="w-full pl-7 pr-3.5 py-2.5 bg-[#0b0b0e] border-2 border-green-600 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                  <p className="text-[10px] text-zinc-400 mt-1">
+                    Company will only provide loading service. Unloading handled by hired help.
+                  </p>
+                </div>
+              )}
+
+              {!useHiredHelp && (
+                <div className="p-4 bg-[#0b0b0e]/50 rounded-xl border border-[#22222a]">
+                  <p className="text-xs text-zinc-400">
+                    <span className="font-bold text-white">Standard Company Service:</span> Loading (${customRates.loadingCost}) + Unloading (${customRates.unloadingCost}) per truck
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Flight Price Fetcher Section */}
+          <FlightPriceFetcher
+            deliveryAddress={deliveryAddress}
+            moveDate={moveDate}
+            truckCount={truckCount}
+            onFlightPriceUpdate={handleFlightPriceUpdate}
+          />
 
           {/* Customer Information Section */}
           <div className="bg-[#141419] p-6 sm:p-8 rounded-3xl border border-[#22222a] shadow-lg space-y-4">

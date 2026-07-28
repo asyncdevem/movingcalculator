@@ -50,7 +50,7 @@ export function loadMapsSdk(apiKey?: string): Promise<boolean> {
 }
 
 /**
- * Calculates exact driving distance and time using client-side DirectionsService or REST API fallback.
+ * Calculates exact driving distance and time using secure server-side API route.
  */
 export async function calculateRouteDistance(
   pickup: string,
@@ -67,75 +67,34 @@ export async function calculateRouteDistance(
     };
   }
 
-  // 1. Try client-side Google Maps DirectionsService if SDK loaded
-  if (typeof window !== 'undefined' && (window as any).google && (window as any).google.maps) {
-    try {
-      const directionsService = new (window as any).google.maps.DirectionsService();
-      const response = await new Promise<any>((resolve, reject) => {
-        directionsService.route(
-          {
-            origin: pickup,
-            destination: delivery,
-            travelMode: (window as any).google.maps.TravelMode.DRIVING,
-          },
-          (result: any, status: any) => {
-            if (status === 'OK' && result.routes && result.routes[0]) {
-              resolve(result.routes[0]);
-            } else {
-              reject(status);
-            }
-          }
-        );
-      });
+  // 1. Try secure server-side API route (primary method)
+  try {
+    const response = await fetch('/api/calculate-route', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pickup, delivery }),
+    });
 
-      if (response && response.legs && response.legs[0]) {
-        const leg = response.legs[0];
-        const meters = leg.distance.value;
-        const seconds = leg.duration.value;
-        const miles = Math.round((meters / 1609.34) * 10) / 10;
-        const hours = Math.round((seconds / 3600) * 10) / 10;
+    const data = await response.json();
 
-        return {
-          pickupAddress: leg.start_address || pickup,
-          deliveryAddress: leg.end_address || delivery,
-          distanceMiles: miles,
-          durationHours: hours,
-          isRealApi: true,
-        };
-      }
-    } catch (e) {
-      console.warn('SDK directions service error, falling back', e);
+    if (data.success && data.isRealApi) {
+      return {
+        pickupAddress: data.pickupAddress || pickup,
+        deliveryAddress: data.deliveryAddress || delivery,
+        distanceMiles: data.distanceMiles,
+        durationHours: data.durationHours,
+        isRealApi: true,
+      };
+    } else {
+      console.warn('Server API returned non-success:', data.message || data.error);
     }
+  } catch (err) {
+    console.warn('Server-side route calculation error, falling back to estimation:', err);
   }
 
-  // 2. Try server-side/REST API fetch if apiKey present
-  if (apiKey && !apiKey.includes('sample_')) {
-    try {
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(
-        pickup
-      )}&destination=${encodeURIComponent(delivery)}&key=${apiKey}`;
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (data.status === 'OK' && data.routes && data.routes[0] && data.routes[0].legs[0]) {
-        const leg = data.routes[0].legs[0];
-        const miles = Math.round((leg.distance.value / 1609.34) * 10) / 10;
-        const hours = Math.round((leg.duration.value / 3600) * 10) / 10;
-
-        return {
-          pickupAddress: leg.start_address || pickup,
-          deliveryAddress: leg.end_address || delivery,
-          distanceMiles: miles,
-          durationHours: hours,
-          isRealApi: true,
-        };
-      }
-    } catch (err) {
-      console.warn('REST API directions fetch error', err);
-    }
-  }
-
-  // 3. Fallback deterministic estimation lookup
+  // 2. Fallback deterministic estimation lookup
   const pickupLower = pickup.toLowerCase();
   const deliveryLower = delivery.toLowerCase();
 

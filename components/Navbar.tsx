@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
-import { ViewType } from '@/types/calculator';
 import {
   Truck,
   PlusCircle,
@@ -16,22 +17,21 @@ import {
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
+  const pathname = usePathname();
   const {
-    currentView,
-    setView,
     adminRates,
     isDarkMode,
     toggleDarkMode,
     notification,
   } = useApp();
 
-  // Streamlined center navigation items to prevent congestion
-  const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
-    { id: 'new-quote', label: 'Calculator', icon: <PlusCircle className="w-4 h-4" /> },
-    { id: 'saved-quotes', label: 'Saved Quotes', icon: <FileText className="w-4 h-4" /> },
-    { id: 'customers', label: 'Customers', icon: <Users className="w-4 h-4" /> },
-    { id: 'admin', label: 'Admin', icon: <Settings className="w-4 h-4" /> },
+  // Navigation items mapped to routes
+  const navItems: { href: string; label: string; icon: React.ReactNode }[] = [
+    { href: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
+    { href: '/new-quote', label: 'Calculator', icon: <PlusCircle className="w-4 h-4" /> },
+    { href: '/quotes', label: 'Saved Quotes', icon: <FileText className="w-4 h-4" /> },
+    { href: '/customers', label: 'Customers', icon: <Users className="w-4 h-4" /> },
+    { href: '/admin', label: 'Admin', icon: <Settings className="w-4 h-4" /> },
   ];
 
   return (
@@ -46,8 +46,8 @@ export const Navbar: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 gap-4">
-          {/* Logo & Branding - Single Line Inline Layout */}
-          <div className="flex items-center gap-3 cursor-pointer shrink-0" onClick={() => setView('dashboard')}>
+          {/* Logo & Branding */}
+          <Link href="/" className="flex items-center gap-3 cursor-pointer shrink-0">
             <div className="bg-[#141419] p-2.5 rounded-xl border border-red-900/40 text-[#e62329] shadow-md shadow-red-900/20">
               <Truck className="w-6 h-6" />
             </div>
@@ -60,16 +60,16 @@ export const Navbar: React.FC = () => {
                 LONG DISTANCE CALCULATOR PORTAL
               </p>
             </div>
-          </div>
+          </Link>
 
-          {/* Desktop Center Navigation Bar - Spacious & Uncongested */}
+          {/* Desktop Center Navigation Bar */}
           <nav className="hidden lg:flex items-center gap-2 bg-[#141419] p-1.5 rounded-2xl border border-[#22222a] mx-2">
             {navItems.map((item) => {
-              const isActive = currentView === item.id;
+              const isActive = pathname === item.href;
               return (
-                <button
-                  key={item.id}
-                  onClick={() => setView(item.id)}
+                <Link
+                  key={item.href}
+                  href={item.href}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap ${
                     isActive
                       ? 'bg-[#e62329] text-white shadow-md shadow-red-900/30 font-black'
@@ -78,7 +78,7 @@ export const Navbar: React.FC = () => {
                 >
                   {item.icon}
                   {item.label}
-                </button>
+                </Link>
               );
             })}
           </nav>
@@ -106,31 +106,31 @@ export const Navbar: React.FC = () => {
             </button>
 
             {/* Primary Action Button */}
-            <button
-              onClick={() => setView('new-quote')}
+            <Link
+              href="/new-quote"
               className="flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-[#e62329] hover:bg-[#cc1b21] text-white rounded-xl text-xs font-black shadow-md shadow-red-900/30 hover:shadow-lg transition-all uppercase tracking-wide whitespace-nowrap"
             >
               <PlusCircle className="w-4 h-4" />
               <span>Create Quote</span>
-            </button>
+            </Link>
           </div>
         </div>
 
         {/* Mobile Navigation bar */}
         <div className="flex lg:hidden items-center justify-around py-2.5 border-t border-[#22222a]">
           {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setView(item.id)}
+            <Link
+              key={item.href}
+              href={item.href}
               className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
-                currentView === item.id
+                pathname === item.href
                   ? 'text-[#e62329]'
                   : 'text-zinc-400'
               }`}
             >
               {item.icon}
               <span>{item.label}</span>
-            </button>
+            </Link>
           ))}
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 import { QuoteRecord } from '@/types/calculator';
 import {
@@ -17,7 +18,6 @@ import {
 export const SavedQuotesView: React.FC = () => {
   const {
     savedQuotes,
-    setView,
     setActiveQuoteForPrint,
     duplicateQuote,
     deleteQuote,
@@ -89,13 +89,13 @@ export const SavedQuotesView: React.FC = () => {
             <Download className="w-4 h-4 text-red-600" />
             <span>Export CSV</span>
           </button>
-          <button
-            onClick={() => setView('new-quote')}
+          <Link
+            href="/new-quote"
             className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl shadow-md shadow-red-600/30 transition-all"
           >
             <PlusCircle className="w-4 h-4" />
             <span>New Quote</span>
-          </button>
+          </Link>
         </div>
       </div>
 

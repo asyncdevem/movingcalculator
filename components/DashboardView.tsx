@@ -1,18 +1,15 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 import { POPULAR_ROUTES } from '@/lib/calculator-engine';
 import {
-  FileText,
-  DollarSign,
-  TrendingUp,
   MapPin,
   ArrowRight,
   PlusCircle,
   Clock,
   CheckCircle2,
-  Truck,
   Shield,
   Printer,
   Copy,
@@ -20,14 +17,7 @@ import {
 } from 'lucide-react';
 
 export const DashboardView: React.FC = () => {
-  const { savedQuotes, setView, adminRates, setActiveQuoteForPrint, duplicateQuote } = useApp();
-
-  const totalQuotesCount = savedQuotes.length;
-  const acceptedQuotes = savedQuotes.filter((q) => q.status === 'Accepted');
-  const sentQuotes = savedQuotes.filter((q) => q.status === 'Sent');
-  const totalPipelineRevenue = savedQuotes.reduce((acc, q) => acc + q.breakdown.grandTotal, 0);
-  const acceptedRevenue = acceptedQuotes.reduce((acc, q) => acc + q.breakdown.grandTotal, 0);
-  const avgQuoteValue = totalQuotesCount > 0 ? Math.round(totalPipelineRevenue / totalQuotesCount) : 0;
+  const { savedQuotes, setActiveQuoteForPrint, duplicateQuote } = useApp();
 
   return (
     <div className="space-y-10 animate-fadeIn">
@@ -52,86 +42,19 @@ export const DashboardView: React.FC = () => {
 
         {/* Hero CTA buttons */}
         <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
-          <button
-            onClick={() => setView('new-quote')}
+          <Link
+            href="/new-quote"
             className="flex items-center gap-2.5 px-6 py-3.5 bg-[#e62329] hover:bg-[#cc1b21] text-white text-xs font-black rounded-2xl shadow-xl shadow-red-900/40 transition-all transform hover:-translate-y-0.5 uppercase tracking-wide"
           >
             <PlusCircle className="w-4 h-4" />
             <span>Create New Quote</span>
-          </button>
-          <button
-            onClick={() => setView('admin')}
+          </Link>
+          <Link
+            href="/admin"
             className="flex items-center gap-2 px-5 py-3.5 bg-[#141419] hover:bg-[#1f1f27] text-white text-xs font-bold rounded-2xl border border-[#22222a] transition-colors uppercase tracking-wide"
           >
             <span>Manage Admin Settings</span>
-          </button>
-        </div>
-      </div>
-
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-[#141419] p-6 rounded-3xl border border-[#22222a] shadow-lg space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Quotes</span>
-            <div className="p-3 bg-[#1f1f27] text-[#e62329] rounded-2xl border border-red-900/30">
-              <FileText className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2 pt-1">
-            <span className="text-3xl font-black text-white">{totalQuotesCount}</span>
-            <span className="text-xs text-[#e62329] font-bold">
-              +{sentQuotes.length + acceptedQuotes.length} active
-            </span>
-          </div>
-          <p className="text-[11px] text-zinc-400 font-medium">Quote generation speed: &lt; 2s</p>
-        </div>
-
-        <div className="bg-[#141419] p-6 rounded-3xl border border-[#22222a] shadow-lg space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Pipeline Revenue</span>
-            <div className="p-3 bg-[#1f1f27] text-[#e62329] rounded-2xl border border-red-900/30">
-              <DollarSign className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2 pt-1">
-            <span className="text-3xl font-black text-white">
-              ${totalPipelineRevenue.toLocaleString()}
-            </span>
-          </div>
-          <p className="text-[11px] text-[#e62329] font-bold">
-            ${acceptedRevenue.toLocaleString()} booked moves
-          </p>
-        </div>
-
-        <div className="bg-[#141419] p-6 rounded-3xl border border-[#22222a] shadow-lg space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Avg Quote Value</span>
-            <div className="p-3 bg-[#1f1f27] text-[#e62329] rounded-2xl border border-red-900/30">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2 pt-1">
-            <span className="text-3xl font-black text-white">
-              ${avgQuoteValue.toLocaleString()}
-            </span>
-          </div>
-          <p className="text-[11px] text-zinc-400 font-medium">Standard 26ft truck estimate</p>
-        </div>
-
-        <div className="bg-[#141419] p-6 rounded-3xl border border-[#22222a] shadow-lg space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Company Margin</span>
-            <div className="p-3 bg-[#1f1f27] text-[#e62329] rounded-2xl border border-red-900/30">
-              <Truck className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2 pt-1">
-            <span className="text-3xl font-black text-white">
-              {adminRates.profitMarginPercent}%
-            </span>
-            <span className="text-xs text-zinc-400">({(1 + adminRates.profitMarginPercent / 100).toFixed(2)}x)</span>
-          </div>
-          <p className="text-[11px] text-zinc-400 font-medium">Gas: ${adminRates.gasPricePerGallon.toFixed(2)}/gal | Pay: ${adminRates.driverPayPerMile.toFixed(2)}/mi</p>
+          </Link>
         </div>
       </div>
 
@@ -147,19 +70,19 @@ export const DashboardView: React.FC = () => {
               Click any route to generate an estimate instantly with live pricing formulas
             </p>
           </div>
-          <button
-            onClick={() => setView('new-quote')}
+          <Link
+            href="/new-quote"
             className="text-xs font-bold text-[#e62329] hover:underline flex items-center gap-1 uppercase"
           >
             Custom Route <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {POPULAR_ROUTES.slice(0, 4).map((route, idx) => (
-            <div
+            <Link
               key={idx}
-              onClick={() => setView('new-quote')}
+              href="/new-quote"
               className="group p-4 rounded-2xl bg-[#0b0b0e] border border-[#22222a] hover:border-[#e62329] hover:shadow-md cursor-pointer transition-all space-y-2"
             >
               <div className="flex items-center justify-between text-xs font-bold text-white">
@@ -171,7 +94,7 @@ export const DashboardView: React.FC = () => {
                 <span>{route.miles} miles</span>
                 <span>~{route.hours} hrs drive</span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
@@ -188,12 +111,12 @@ export const DashboardView: React.FC = () => {
               Manage saved estimates, duplicate, or generate customer PDFs
             </p>
           </div>
-          <button
-            onClick={() => setView('saved-quotes')}
+          <Link
+            href="/quotes"
             className="text-xs font-bold text-[#e62329] hover:underline flex items-center gap-1 uppercase"
           >
             View All Quotes <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+          </Link>
         </div>
 
         <div className="overflow-x-auto">

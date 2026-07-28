@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 import { Users, Phone, Mail, Calendar, PlusCircle, Search, ArrowRight } from 'lucide-react';
 
 export const CustomersView: React.FC = () => {
-  const { savedQuotes, setView, setActiveQuoteForPrint } = useApp();
+  const { savedQuotes, setActiveQuoteForPrint } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
 
   const customersMap = new Map<string, {
@@ -57,13 +58,13 @@ export const CustomersView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setView('new-quote')}
+        <Link
+          href="/new-quote"
           className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl shadow-md shadow-red-600/30 transition-all"
         >
           <PlusCircle className="w-4 h-4" />
           <span>New Quote</span>
-        </button>
+        </Link>
       </div>
 
       {/* Search */}
@@ -139,13 +140,13 @@ export const CustomersView: React.FC = () => {
               </div>
             </div>
 
-            <button
-              onClick={() => setView('new-quote')}
+            <Link
+              href="/new-quote"
               className="w-full py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2 mt-4"
             >
               <span>Create Quote for {customer.name.split(' ')[0]}</span>
               <ArrowRight className="w-3.5 h-3.5 text-red-500" />
-            </button>
+            </Link>
           </div>
         ))}
       </div>

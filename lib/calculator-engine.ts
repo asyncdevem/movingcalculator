@@ -9,7 +9,44 @@ export const DEFAULT_ADMIN_RATES: AdminRates = {
   unloadingCost: 600,
   flightDefaultCost: 300,
   profitMarginPercent: 30, // 30% margin (1.30 multiplier)
+  hoursPerDrivingDay: 11, // Max 11 hours driving per day
 };
+
+// Weight-based calculation constants
+export const POUNDS_PER_TRUCK = 8000; // Max weight capacity per truck
+export const POUNDS_PER_MOVER_PER_HOUR = 600; // Each mover can handle 600 lbs/hour
+export const DEFAULT_MOVER_COUNT = 4; // Default number of movers
+
+/**
+ * Calculates number of trucks needed based on total weight.
+ * Formula: CEILING(Weight / 8000)
+ * Each truck can carry max 8,000 lbs
+ */
+export function calculateTrucksNeededFromWeight(weight: number): number {
+  if (weight <= 0) return 1;
+  return Math.ceil(weight / POUNDS_PER_TRUCK);
+}
+
+/**
+ * Calculates loading and unloading hours based on weight and number of movers.
+ * Formula: Weight / # of Movers / 600
+ * Each mover can handle 600 lbs per hour
+ */
+export function calculateLoadUnloadHours(
+  weight: number,
+  numberOfMovers: number
+): { loadHours: number; unloadHours: number; totalLaborHours: number } {
+  if (weight <= 0 || numberOfMovers <= 0) {
+    return { loadHours: 0, unloadHours: 0, totalLaborHours: 0 };
+  }
+
+  const hoursPerOperation = weight / numberOfMovers / POUNDS_PER_MOVER_PER_HOUR;
+  const loadHours = Math.round(hoursPerOperation * 10) / 10; // Round to 1 decimal
+  const unloadHours = Math.round(hoursPerOperation * 10) / 10;
+  const totalLaborHours = Math.round((loadHours + unloadHours) * 10) / 10;
+
+  return { loadHours, unloadHours, totalLaborHours };
+}
 
 // Preset popular long distance routes for instant lookup / testing
 export const POPULAR_ROUTES: { pickup: string; delivery: string; miles: number; hours: number }[] = [
@@ -25,13 +62,13 @@ export const POPULAR_ROUTES: { pickup: string; delivery: string; miles: number; 
 
 /**
  * Calculates driving days and required hotel nights.
- * Driver limit: Max 11 Hours / Day.
- * Driving Days = Ceiling(Drive Hours / 11)
+ * Driver limit: Max hours per day (configurable, default 11)
+ * Driving Days = Ceiling(Drive Hours / Hours Per Day)
  * Hotel Nights = Driving Days - 1
  */
-export function calculateLogisticsDays(driveHours: number): { drivingDays: number; hotelNights: number } {
+export function calculateLogisticsDays(driveHours: number, hoursPerDay: number = 11): { drivingDays: number; hotelNights: number } {
   if (driveHours <= 0) return { drivingDays: 0, hotelNights: 0 };
-  const drivingDays = Math.ceil(driveHours / 11);
+  const drivingDays = Math.ceil(driveHours / hoursPerDay);
   const hotelNights = Math.max(0, drivingDays - 1);
   return { drivingDays, hotelNights };
 }
@@ -55,13 +92,13 @@ export function calculateTruckRates(miles: number, drivingDays: number): { uhaul
 }
 
 /**
- * Calculates complete quote breakdown using company formulas from PRD:
+ * Calculates complete quote breakdown using company formulas:
  * - Driver Pay = Distance * driverPayPerMile * TruckCount
  * - Fuel = (Distance / MPG) * GasPrice * TruckCount
- * - Hotel = HotelNights * HotelRate * TruckCount
- * - Labor = (Loading + Unloading) * TruckCount
- * - Flight = FlightCost (flat allowance)
- * - Truck Rental = Selected Provider Rate * TruckCount
+ * - Hotel = HotelNights * HotelRate * TruckCount (per truck!)
+ * - Labor = (Loading + Unloading OR HiredHelp) * TruckCount
+ * - Flight = FlightCost * TruckCount (per driver/truck!)
+ * - Truck Rental = (Manual Price OR Auto Rate) * TruckCount
  * - Subtotal = Sum of all above
  * - Profit Amount = Subtotal * (Margin % / 100)
  * - Grand Total = Subtotal + Profit Amount
@@ -69,7 +106,9 @@ export function calculateTruckRates(miles: number, drivingDays: number): { uhaul
 export function calculateQuoteBreakdown(
   route: RouteInfo,
   truck: TruckOption,
-  rates: AdminRates
+  rates: AdminRates,
+  hiredHelpCost?: number,
+  useHiredHelp?: boolean
 ): QuoteBreakdown {
   const miles = Math.max(0, route.distanceMiles);
   const truckCount = Math.max(1, truck.count);
@@ -82,19 +121,39 @@ export function calculateQuoteBreakdown(
   const fuelGallons = rates.mpg > 0 ? miles / rates.mpg : 0;
   const fuelCost = Math.round(fuelGallons * rates.gasPricePerGallon * truckCount);
 
-  // 3. Hotel Calculation
+  // 3. Hotel Calculation (PER TRUCK - each truck needs driver accommodations)
   const hotelCost = Math.round(hotelNights * rates.hotelRatePerNight * truckCount);
 
-  // 4. Labor
+  // 4. Labor (with hired help option)
   const loadingCost = Math.round(rates.loadingCost * truckCount);
-  const unloadingCost = Math.round(rates.unloadingCost * truckCount);
-  const laborCost = loadingCost + unloadingCost;
+  let unloadingCost: number;
+  let laborCost: number;
 
-  // 5. Flight Cost
-  const flightCost = Math.round(rates.flightDefaultCost);
+  if (useHiredHelp && hiredHelpCost !== undefined) {
+    // Use hired help for unloading instead of company labor
+    unloadingCost = 0; // Company doesn't do unloading
+    const hiredHelp = Math.round(hiredHelpCost);
+    laborCost = loadingCost + hiredHelp;
+  } else {
+    // Standard company loading and unloading
+    unloadingCost = Math.round(rates.unloadingCost * truckCount);
+    laborCost = loadingCost + unloadingCost;
+  }
 
-  // 6. Truck Rental Cost
-  const perTruckRental = truck.selectedProvider === 'U-Haul' ? truck.uhaulRatePerTruck : truck.penskeRatePerTruck;
+  // 5. Flight Cost (PER DRIVER/TRUCK - each driver needs return flight)
+  const flightCost = Math.round(rates.flightDefaultCost * truckCount);
+
+  // 6. Truck Rental Cost (Manual Override OR Auto-Calculated)
+  let perTruckRental: number;
+  
+  if (truck.isManualRental && truck.manualRentalPrice !== undefined) {
+    // Use manually entered price
+    perTruckRental = truck.manualRentalPrice;
+  } else {
+    // Use auto-calculated price from provider
+    perTruckRental = truck.selectedProvider === 'U-Haul' ? truck.uhaulRatePerTruck : truck.penskeRatePerTruck;
+  }
+  
   const truckRentalCost = Math.round(perTruckRental * truckCount);
 
   // 7. Subtotal
@@ -111,6 +170,8 @@ export function calculateQuoteBreakdown(
     laborCost,
     loadingCost,
     unloadingCost,
+    hiredHelpCost: useHiredHelp ? hiredHelpCost : undefined,
+    useHiredHelp,
     flightCost,
     truckRentalCost,
     subtotal,

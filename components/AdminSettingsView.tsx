@@ -148,7 +148,21 @@ export const AdminSettingsView: React.FC = () => {
                     onChange={(e) => handleChange('hotelRatePerNight', parseInt(e.target.value))}
                     className="w-full px-3 py-2 bg-[#141419] border border-[#22222a] rounded-xl font-black text-white"
                   />
-                  <p className="text-[10px] text-zinc-400 mt-1">Triggered when drive time exceeds 11 hours</p>
+                  <p className="text-[10px] text-zinc-400 mt-1">Per truck, per night (drivers need accommodations)</p>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-400 mb-1">
+                    Max Hours Per Driving Day
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={formData.hoursPerDrivingDay}
+                    onChange={(e) => handleChange('hoursPerDrivingDay', parseFloat(e.target.value))}
+                    className="w-full px-3 py-2 bg-[#141419] border border-[#22222a] rounded-xl font-black text-white"
+                  />
+                  <p className="text-[10px] text-zinc-400 mt-1">Hotel triggered every {formData.hoursPerDrivingDay || 11} hours (default: 11)</p>
                 </div>
               </div>
 
@@ -193,7 +207,7 @@ export const AdminSettingsView: React.FC = () => {
 
                 <div>
                   <label className="block text-[11px] font-bold text-zinc-400 mb-1">
-                    Default Driver Return Flight ($)
+                    Return Flight Cost ($ Per Driver/Truck)
                   </label>
                   <input
                     type="number"
@@ -201,6 +215,7 @@ export const AdminSettingsView: React.FC = () => {
                     onChange={(e) => handleChange('flightDefaultCost', parseInt(e.target.value))}
                     className="w-full px-3 py-2 bg-[#141419] border border-[#22222a] rounded-xl font-black text-white"
                   />
+                  <p className="text-[10px] text-zinc-400 mt-1">Multiplied by number of trucks (each driver needs return flight)</p>
                 </div>
 
                 <div>
