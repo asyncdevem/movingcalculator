@@ -7,6 +7,18 @@ import { Truck, Printer, X, CheckCircle, MapPin, Calendar, User, Phone, Mail } f
 export const QuoteModal: React.FC = () => {
   const { activeQuoteForPrint, setActiveQuoteForPrint, updateQuoteStatus } = useApp();
 
+  // Handle ESC key to close modal
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activeQuoteForPrint) {
+        setActiveQuoteForPrint(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [activeQuoteForPrint, setActiveQuoteForPrint]);
+
   if (!activeQuoteForPrint) return null;
 
   const quote = activeQuoteForPrint;
@@ -14,44 +26,63 @@ export const QuoteModal: React.FC = () => {
   const validUntil = new Date(new Date(quote.createdAt).getTime() + 30 * 86400000).toLocaleDateString();
 
   const handleTriggerPrint = () => {
-    window.print();
+    // Small delay to ensure styles are applied
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  };
+
+  const handleDownloadPDF = () => {
+    // Trigger print dialog which allows "Save as PDF"
+    handleTriggerPrint();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto animate-fadeIn no-print-backdrop">
       <div className="relative w-full max-w-4xl bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden my-8 print-card">
         {/* Modal Toolbar (hidden when printing) */}
-        <div className="flex items-center justify-between px-6 py-4 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 no-print">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono font-black text-red-600 dark:text-red-500 bg-red-50 dark:bg-red-950/80 px-3 py-1 rounded-xl border border-red-200 dark:border-red-900">
-              {quote.quoteNumber}
-            </span>
-            <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">MovingDan Customer Quote</span>
+        <div className="no-print space-y-0">
+          <div className="flex items-center justify-between px-6 py-4 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono font-black text-red-600 dark:text-red-500 bg-red-50 dark:bg-red-950/80 px-3 py-1 rounded-xl border border-red-200 dark:border-red-900">
+                {quote.quoteNumber}
+              </span>
+              <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">MovingDan Customer Quote</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {quote.status !== 'Accepted' && (
+                <button
+                  onClick={() => updateQuoteStatus(quote.id, 'Accepted')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-xs font-bold transition-colors hover:bg-zinc-800 dark:hover:bg-zinc-200"
+                >
+                  <CheckCircle className="w-3.5 h-3.5 text-red-500" />
+                  Mark Accepted
+                </button>
+              )}
+              <button
+                onClick={handleTriggerPrint}
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-md transition-all print-button"
+                title="Print or Save as PDF (Ctrl/Cmd + P)"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print / Save PDF
+              </button>
+              <button
+                onClick={() => setActiveQuoteForPrint(null)}
+                className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-xl hover:bg-zinc-200/50 dark:hover:bg-zinc-800 transition-colors"
+                title="Close (ESC)"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {quote.status !== 'Accepted' && (
-              <button
-                onClick={() => updateQuoteStatus(quote.id, 'Accepted')}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-xs font-bold transition-colors"
-              >
-                <CheckCircle className="w-3.5 h-3.5 text-red-500" />
-                Mark Accepted
-              </button>
-            )}
-            <button
-              onClick={handleTriggerPrint}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Print / Save PDF
-            </button>
-            <button
-              onClick={() => setActiveQuoteForPrint(null)}
-              className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-xl hover:bg-zinc-200/50 dark:hover:bg-zinc-800 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+          {/* PDF Instructions Banner */}
+          <div className="px-6 py-3 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-900">
+            <p className="text-xs text-blue-800 dark:text-blue-300 font-medium">
+              <span className="font-bold">💡 Save as PDF:</span> Click "Print / Save PDF" → Select "Save as PDF" or "Microsoft Print to PDF" as the printer → Click Save
+            </p>
           </div>
         </div>
 

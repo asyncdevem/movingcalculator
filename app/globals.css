@@ -73,22 +73,100 @@ body {
 
 /* Print layout optimizations */
 @media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
   body {
     background: white !important;
     color: black !important;
+    margin: 0;
+    padding: 0;
   }
 
-  .no-print {
+  /* Hide non-printable elements */
+  .no-print,
+  .no-print-backdrop {
     display: none !important;
   }
 
+  /* Show print-only elements */
   .print-only {
     display: block !important;
   }
 
+  /* Print card styling */
   .print-card {
-    border: 1px solid #18181b !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    border: 1px solid #e5e7eb !important;
     box-shadow: none !important;
     break-inside: avoid;
+    page-break-inside: avoid;
+    border-radius: 0 !important;
+  }
+
+  /* Ensure proper page breaks */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  table {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Remove backdrop blur on print */
+  .backdrop-blur-md {
+    backdrop-filter: none !important;
+  }
+
+  /* Ensure proper sizing */
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
+
+  /* Fix font sizes for print */
+  body {
+    font-size: 12pt;
+  }
+
+  /* Ensure colors print correctly */
+  .bg-red-600,
+  .bg-red-500,
+  .text-red-600,
+  .text-red-500 {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .bg-zinc-950,
+  .bg-zinc-900,
+  .bg-zinc-800 {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Print button styling */
+@media screen {
+  .print-button {
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .print-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(230, 35, 41, 0.3);
   }
 }
