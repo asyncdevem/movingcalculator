@@ -79,17 +79,28 @@ body {
     color-adjust: exact !important;
   }
 
-  body {
+  html, body {
     background: white !important;
     color: black !important;
-    margin: 0;
-    padding: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100%;
+    height: auto;
   }
 
-  /* Hide non-printable elements */
+  body {
+    font-size: 11pt;
+  }
+
+  /* Hide ALL non-printable elements */
   .no-print,
-  .no-print-backdrop {
+  .no-print-backdrop,
+  header,
+  footer,
+  nav,
+  button:not(.print-only) {
     display: none !important;
+    visibility: hidden !important;
   }
 
   /* Show print-only elements */
@@ -97,64 +108,115 @@ body {
     display: block !important;
   }
 
-  /* Print card styling */
-  .print-card {
-    max-width: 100% !important;
+  /* Modal backdrop - make it transparent and full page */
+  .fixed.inset-0 {
+    position: static !important;
+    background: white !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
     margin: 0 !important;
-    padding: 20px !important;
-    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Print card styling - remove all modal styling */
+  .print-card {
+    position: static !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
     box-shadow: none !important;
-    break-inside: avoid;
-    page-break-inside: avoid;
     border-radius: 0 !important;
+    background: white !important;
   }
 
   /* Ensure proper page breaks */
   h1, h2, h3, h4, h5, h6 {
-    page-break-after: avoid;
-    break-after: avoid;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   table {
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   tr {
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
-  /* Remove backdrop blur on print */
-  .backdrop-blur-md {
+  /* Remove all backdrop and overlay effects */
+  .backdrop-blur-md,
+  .backdrop-blur,
+  .backdrop-blur-sm {
     backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   /* Ensure proper sizing */
   @page {
     size: A4;
-    margin: 1cm;
+    margin: 0.75in;
   }
 
-  /* Fix font sizes for print */
-  body {
-    font-size: 12pt;
-  }
-
-  /* Ensure colors print correctly */
+  /* Ensure colors print correctly - important for branding */
   .bg-red-600,
   .bg-red-500,
   .text-red-600,
-  .text-red-500 {
+  .text-red-500,
+  .border-red-600,
+  .border-red-500 {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
 
   .bg-zinc-950,
   .bg-zinc-900,
-  .bg-zinc-800 {
+  .bg-zinc-800,
+  .bg-zinc-700,
+  .text-zinc-950,
+  .text-zinc-900 {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Ensure table header colors print */
+  thead,
+  thead tr,
+  thead th {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Remove any shadows in print */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Ensure borders are visible */
+  .border,
+  .border-t,
+  .border-b,
+  .border-l,
+  .border-r {
+    border-color: #e5e7eb !important;
+  }
+
+  /* Make sure all text is black for readability */
+  p, span, div {
+    color: #000 !important;
+  }
+
+  /* Exception for specific colored text that needs to stay */
+  .text-red-600,
+  .text-red-500,
+  .text-white {
+    -webkit-print-color-adjust: exact !important;
   }
 }
 

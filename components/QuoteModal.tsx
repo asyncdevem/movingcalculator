@@ -39,7 +39,7 @@ export const QuoteModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto animate-fadeIn no-print-backdrop">
-      <div className="relative w-full max-w-4xl bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden my-8 print-card">
+      <div className="relative w-full max-w-4xl bg-white text-zinc-900 rounded-3xl shadow-2xl border border-zinc-200 overflow-hidden my-8 print-card print:bg-white print:text-black">
         {/* Modal Toolbar (hidden when printing) */}
         <div className="no-print space-y-0">
           <div className="flex items-center justify-between px-6 py-4 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
@@ -87,7 +87,7 @@ export const QuoteModal: React.FC = () => {
         </div>
 
         {/* PRINTABLE DOCUMENT BODY */}
-        <div className="p-8 sm:p-10 space-y-8 print:p-0">
+        <div className="p-8 sm:p-10 space-y-8 print:p-8 print:space-y-6">
           {/* Header & Logo */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6">
             <div className="space-y-1">
