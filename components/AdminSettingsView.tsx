@@ -15,6 +15,7 @@ import {
   Key,
   ShieldCheck,
   CheckCircle2,
+  Truck,
 } from 'lucide-react';
 
 export const AdminSettingsView: React.FC = () => {
@@ -229,6 +230,42 @@ export const AdminSettingsView: React.FC = () => {
                     className="w-full px-3 py-2 bg-[#141419] border border-[#22222a] rounded-xl font-black text-[#e62329]"
                   />
                   <p className="text-[10px] text-zinc-400 mt-1">Multiplier: {(1 + formData.profitMarginPercent / 100).toFixed(2)}x</p>
+                </div>
+              </div>
+
+              {/* DTMM Rates */}
+              <div className="p-4 rounded-2xl bg-[#0b0b0e] border border-[#22222a] space-y-3 col-span-full">
+                <div className="flex items-center gap-2 font-black text-white uppercase text-[11px]">
+                  <Truck className="w-4 h-4 text-[#e62329]" />
+                  <span>DTMM Truck Pricing</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-400 mb-1">
+                      DTMM Daily Rate ($ / Day / Truck)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.dtmmDailyRate}
+                      onChange={(e) => handleChange('dtmmDailyRate', parseInt(e.target.value))}
+                      className="w-full px-3 py-2 bg-[#141419] border border-[#22222a] rounded-xl font-black text-white"
+                    />
+                    <p className="text-[10px] text-zinc-400 mt-1">Default: $113 per day per truck</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-400 mb-1">
+                      DTMM Extra Driver Fee ($)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.dtmmExtraDriverFee}
+                      onChange={(e) => handleChange('dtmmExtraDriverFee', parseInt(e.target.value))}
+                      className="w-full px-3 py-2 bg-[#141419] border border-[#22222a] rounded-xl font-black text-white"
+                    />
+                    <p className="text-[10px] text-zinc-400 mt-1">Flat fee (not per truck): Default $500</p>
+                  </div>
                 </div>
               </div>
             </div>

@@ -8,10 +8,12 @@ import {
   calculateTruckRates,
   calculateQuoteBreakdown,
   POPULAR_ROUTES,
+  DTMM_DISPATCH_LOCATIONS,
 } from '@/lib/calculator-engine';
 import {
   calculateRouteDistance,
   parseRouteUrl,
+  calculateRoundTripRoute,
 } from '@/lib/google-maps-service';
 import { GoogleMapsSelector } from '@/components/GoogleMapsSelector';
 import { WeightCalculator } from '@/components/WeightCalculator';
@@ -64,7 +66,17 @@ export const NewQuoteView: React.FC = () => {
   // 3a. Manual rental prices (no auto-calculation)
   const [uhaulPrice, setUhaulPrice] = useState<number>(0);
   const [penskePrice, setPenskePrice] = useState<number>(0);
-  const [selectedProvider, setSelectedProvider] = useState<'U-Haul' | 'Penske'>('U-Haul');
+  const [selectedProvider, setSelectedProvider] = useState<'U-Haul' | 'Penske' | 'DTMM Truck'>('U-Haul');
+
+  // 3a-dtmm. DTMM-specific state
+  const [dtmmDispatchLocation, setDtmmDispatchLocation] = useState<string>(DTMM_DISPATCH_LOCATIONS[0].address);
+  const [dtmmDays, setDtmmDays] = useState<number>(1);
+  const [dtmmRoundTripMiles, setDtmmRoundTripMiles] = useState<number>(0);
+  const [dtmmRoundTripHours, setDtmmRoundTripHours] = useState<number>(0);
+  const [hasExtraDriver, setHasExtraDriver] = useState<boolean>(false);
+  const [isManualHotel, setIsManualHotel] = useState<boolean>(false);
+  const [manualHotelNights, setManualHotelNights] = useState<number>(0);
+  const [isManualDistance, setIsManualDistance] = useState<boolean>(false);
 
   // 3b. Weight-based calculations state
   const [totalWeight, setTotalWeight] = useState<number>(0);
@@ -110,16 +122,34 @@ export const NewQuoteView: React.FC = () => {
     if (!pickup || !delivery) return;
     setIsCalculatingRoute(true);
     try {
-      const res = await calculateRouteDistance(pickup, delivery);
-      setDistanceMiles(res.distanceMiles);
-      setDurationHours(res.durationHours);
-      setIsRealApiActive(res.isRealApi);
+      if (selectedProvider === 'DTMM Truck' && !isManualDistance) {
+        // Calculate round-trip for DTMM
+        const roundTrip = await calculateRoundTripRoute(dtmmDispatchLocation, pickup, delivery);
+        setDtmmRoundTripMiles(roundTrip.totalMiles);
+        setDtmmRoundTripHours(roundTrip.totalHours);
+        setDistanceMiles(roundTrip.totalMiles);
+        setDurationHours(roundTrip.totalHours);
+        setIsRealApiActive(roundTrip.isRealApi);
+      } else if (!isManualDistance) {
+        // Standard one-way calculation
+        const res = await calculateRouteDistance(pickup, delivery);
+        setDistanceMiles(res.distanceMiles);
+        setDurationHours(res.durationHours);
+        setIsRealApiActive(res.isRealApi);
+      }
     } catch (e) {
       console.warn('Route calculation error', e);
     } finally {
       setIsCalculatingRoute(false);
     }
   };
+
+  // Recalculate DTMM round-trip when dispatch location changes
+  useEffect(() => {
+    if (selectedProvider === 'DTMM Truck' && pickupAddress && deliveryAddress && !isManualDistance) {
+      triggerRouteCalculation(pickupAddress, deliveryAddress);
+    }
+  }, [dtmmDispatchLocation, selectedProvider]);
 
   const { drivingDays, hotelNights } = useMemo(
     () => calculateLogisticsDays(durationHours, customRates.hoursPerDrivingDay),
@@ -135,8 +165,11 @@ export const NewQuoteView: React.FC = () => {
       drivingDays,
       hotelNights,
       googleMapsUrl: mapsUrlInput || undefined,
+      isManualDistance,
+      isManualHotel,
+      manualHotelNights: isManualHotel ? manualHotelNights : undefined,
     }),
-    [pickupAddress, deliveryAddress, distanceMiles, durationHours, drivingDays, hotelNights, mapsUrlInput]
+    [pickupAddress, deliveryAddress, distanceMiles, durationHours, drivingDays, hotelNights, mapsUrlInput, isManualDistance, isManualHotel, manualHotelNights]
   );
 
   const truckOption: TruckOption = useMemo(
@@ -152,9 +185,17 @@ export const NewQuoteView: React.FC = () => {
       unloadHours: totalWeight > 0 ? unloadHours : undefined,
       isWeightBased: useWeightBasedTrucks,
       isManualRental: true, // Always manual now
-      manualRentalPrice: selectedProvider === 'U-Haul' ? uhaulPrice : penskePrice,
+      manualRentalPrice: selectedProvider === 'U-Haul' ? uhaulPrice : selectedProvider === 'Penske' ? penskePrice : 0,
+      // DTMM-specific fields
+      dtmmDispatchLocation: selectedProvider === 'DTMM Truck' ? dtmmDispatchLocation : undefined,
+      dtmmDailyRate: adminRates.dtmmDailyRate,
+      dtmmDays: selectedProvider === 'DTMM Truck' ? dtmmDays : undefined,
+      dtmmRoundTripMiles: selectedProvider === 'DTMM Truck' ? dtmmRoundTripMiles : undefined,
+      dtmmRoundTripHours: selectedProvider === 'DTMM Truck' ? dtmmRoundTripHours : undefined,
+      hasExtraDriver: selectedProvider === 'DTMM Truck' ? hasExtraDriver : undefined,
+      extraDriverFee: adminRates.dtmmExtraDriverFee,
     }),
-    [truckType, truckCount, uhaulPrice, penskePrice, selectedProvider, totalWeight, numberOfMovers, loadHours, unloadHours, useWeightBasedTrucks]
+    [truckType, truckCount, uhaulPrice, penskePrice, selectedProvider, totalWeight, numberOfMovers, loadHours, unloadHours, useWeightBasedTrucks, dtmmDispatchLocation, dtmmDays, dtmmRoundTripMiles, dtmmRoundTripHours, hasExtraDriver, adminRates]
   );
 
   // Handler for weight calculation updates
@@ -457,7 +498,8 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
                     type="number"
                     value={distanceMiles}
                     onChange={(e) => setDistanceMiles(Math.max(0, Number(e.target.value)))}
-                    className="w-20 font-black text-xl text-[#e62329] bg-transparent border-b border-[#e62329] focus:outline-none"
+                    disabled={selectedProvider === 'DTMM Truck' && !isManualDistance}
+                    className="w-20 font-black text-xl text-[#e62329] bg-transparent border-b border-[#e62329] focus:outline-none disabled:opacity-50"
                   />
                   <span className="text-xs text-zinc-400">mi</span>
                 </div>
@@ -471,7 +513,8 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
                     step="0.5"
                     value={durationHours}
                     onChange={(e) => setDurationHours(Math.max(0, Number(e.target.value)))}
-                    className="w-16 font-black text-xl text-white bg-transparent border-b border-zinc-700 focus:outline-none"
+                    disabled={selectedProvider === 'DTMM Truck' && !isManualDistance}
+                    className="w-16 font-black text-xl text-white bg-transparent border-b border-zinc-700 focus:outline-none disabled:opacity-50"
                   />
                   <span className="text-xs text-zinc-400">hrs</span>
                 </div>
@@ -490,11 +533,64 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
                 <span className="text-[10px] uppercase font-bold text-zinc-400 block">Hotel Nights</span>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <Bed className="w-4 h-4 text-[#e62329]" />
-                  <span className="font-black text-xl text-white">{hotelNights}</span>
+                  <span className="font-black text-xl text-white">{isManualHotel ? manualHotelNights : hotelNights}</span>
                   <span className="text-[10px] text-zinc-400">nights</span>
                 </div>
               </div>
             </div>
+
+            {/* Manual Override Options for DTMM */}
+            {selectedProvider === 'DTMM Truck' && (
+              <div className="space-y-3 p-4 bg-[#0b0b0e]/50 rounded-2xl border border-[#22222a]">
+                <div className="text-[11px] font-bold text-white uppercase mb-2">Manual Overrides:</div>
+                
+                {/* Manual Distance Override */}
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="manualDistance"
+                    checked={isManualDistance}
+                    onChange={(e) => setIsManualDistance(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-[#22222a] bg-[#141419] text-[#e62329] focus:ring-2 focus:ring-[#e62329]"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="manualDistance" className="text-[11px] font-bold text-zinc-300 cursor-pointer">
+                      Manually Override Distance & Hours
+                    </label>
+                    <p className="text-[10px] text-zinc-400 mt-0.5">Use this if Google Maps shows different values than our calculation</p>
+                  </div>
+                </div>
+
+                {/* Manual Hotel Override */}
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="manualHotel"
+                    checked={isManualHotel}
+                    onChange={(e) => setIsManualHotel(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-[#22222a] bg-[#141419] text-[#e62329] focus:ring-2 focus:ring-[#e62329]"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="manualHotel" className="text-[11px] font-bold text-zinc-300 cursor-pointer">
+                      Manually Set Hotel Nights
+                    </label>
+                    {isManualHotel && (
+                      <div className="mt-2">
+                        <input
+                          type="number"
+                          min="0"
+                          value={manualHotelNights}
+                          onChange={(e) => setManualHotelNights(Math.max(0, Number(e.target.value)))}
+                          className="w-24 px-3 py-1.5 bg-[#141419] border border-[#22222a] rounded-lg text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#e62329]"
+                          placeholder="0"
+                        />
+                        <span className="text-[10px] text-zinc-400 ml-2">nights</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Truck Selection & Provider Comparison */}
@@ -559,21 +655,138 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
                 <span className="uppercase">Select Rental Provider:</span>
                 <div className="flex gap-2 text-[11px]">
                   <button
-                    onClick={() => setSelectedProvider('U-Haul')}
+                    onClick={() => {
+                      setSelectedProvider('U-Haul');
+                      setIsManualDistance(false);
+                      setIsManualHotel(false);
+                    }}
                     className={`px-2.5 py-1 rounded-lg font-bold uppercase transition-all ${selectedProvider === 'U-Haul' ? 'bg-[#e62329] text-white' : 'bg-[#0b0b0e] text-zinc-400'}`}
                   >
                     U-Haul
                   </button>
                   <button
-                    onClick={() => setSelectedProvider('Penske')}
+                    onClick={() => {
+                      setSelectedProvider('Penske');
+                      setIsManualDistance(false);
+                      setIsManualHotel(false);
+                    }}
                     className={`px-2.5 py-1 rounded-lg font-bold uppercase transition-all ${selectedProvider === 'Penske' ? 'bg-[#e62329] text-white' : 'bg-[#0b0b0e] text-zinc-400'}`}
                   >
                     Penske
                   </button>
+                  <button
+                    onClick={() => {
+                      setSelectedProvider('DTMM Truck');
+                      triggerRouteCalculation(pickupAddress, deliveryAddress);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg font-bold uppercase transition-all ${selectedProvider === 'DTMM Truck' ? 'bg-[#e62329] text-white' : 'bg-[#0b0b0e] text-zinc-400'}`}
+                  >
+                    DTMM Truck
+                  </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {selectedProvider === 'DTMM Truck' ? (
+                /* DTMM Provider Card */
+                <div className="space-y-4">
+                  <div className="p-4 rounded-2xl border bg-[#0b0b0e] text-white border-[#e62329] ring-2 ring-red-900/40">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-black text-xs uppercase tracking-wider">DTMM Truck Rental</span>
+                      <span className="text-[9px] uppercase font-black bg-[#e62329] text-white px-2 py-0.5 rounded-full">
+                        Selected
+                      </span>
+                    </div>
+
+                    {/* Dispatch Location */}
+                    <div className="mb-3">
+                      <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase">
+                        Dispatch Location
+                      </label>
+                      <select
+                        value={dtmmDispatchLocation}
+                        onChange={(e) => setDtmmDispatchLocation(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-[#141419] border border-[#22222a] rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#e62329]"
+                      >
+                        {DTMM_DISPATCH_LOCATIONS.map((loc) => (
+                          <option key={loc.name} value={loc.address}>
+                            {loc.name} - {loc.address}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* DTMM Days & Daily Rate */}
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase">
+                          Number of Days
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={dtmmDays}
+                          onChange={(e) => setDtmmDays(Math.max(1, Number(e.target.value)))}
+                          className="w-full px-3 py-2.5 bg-[#141419] border border-[#22222a] rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#e62329]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase">
+                          Daily Rate
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2.5 text-zinc-400 text-xs font-bold">$</span>
+                          <input
+                            type="text"
+                            value={adminRates.dtmmDailyRate}
+                            disabled
+                            className="w-full pl-7 pr-3 py-2.5 bg-[#141419] border border-[#22222a] rounded-xl text-xs font-bold text-zinc-500 cursor-not-allowed"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Round-trip info */}
+                    {dtmmRoundTripMiles > 0 && (
+                      <div className="p-2.5 bg-[#141419] rounded-lg border border-[#22222a] text-[10px] text-zinc-400 mb-3">
+                        <div className="font-bold text-white mb-1">Round-Trip Route:</div>
+                        <div>{DTMM_DISPATCH_LOCATIONS.find(l => l.address === dtmmDispatchLocation)?.name} → Pickup → Delivery → {DTMM_DISPATCH_LOCATIONS.find(l => l.address === dtmmDispatchLocation)?.name}</div>
+                        <div className="font-bold text-[#e62329] mt-1">{dtmmRoundTripMiles} miles • {dtmmRoundTripHours} hours</div>
+                      </div>
+                    )}
+
+                    {/* Extra Driver Option */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <input
+                        type="checkbox"
+                        id="extraDriver"
+                        checked={hasExtraDriver}
+                        onChange={(e) => setHasExtraDriver(e.target.checked)}
+                        className="w-4 h-4 rounded border-[#22222a] bg-[#141419] text-[#e62329] focus:ring-2 focus:ring-[#e62329]"
+                      />
+                      <label htmlFor="extraDriver" className="text-[11px] font-bold text-white">
+                        Add Extra Driver (+${adminRates.dtmmExtraDriverFee} flat fee)
+                      </label>
+                    </div>
+
+                    {/* Calculation */}
+                    {truckCount > 0 && dtmmDays > 0 && (
+                      <div className="text-[11px] text-zinc-400 font-semibold">
+                        Rental: ${adminRates.dtmmDailyRate}/day × {dtmmDays} days × {truckCount} truck{truckCount > 1 ? 's' : ''} = ${(adminRates.dtmmDailyRate * dtmmDays * truckCount).toLocaleString()}
+                        {hasExtraDriver && <div className="text-[#e62329]">+ Extra Driver: ${adminRates.dtmmExtraDriverFee}</div>}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-3 bg-[#0b0b0e]/50 rounded-xl border border-[#22222a]">
+                    <p className="text-[11px] text-zinc-400">
+                      <span className="font-bold text-white">ℹ️ DTMM Truck:</span> Round-trip calculation (dispatch → pickup → delivery → dispatch). No flight cost needed as drivers return in trucks.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* U-Haul & Penske Cards */
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* U-Haul Card */}
                 <div
                   className={`p-4 rounded-2xl border transition-all ${
@@ -656,6 +869,8 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
                   <span className="font-bold text-white">💡 Tip:</span> Enter the actual quote you received from U-Haul or Penske. The selected provider's price will be used in the final calculation.
                 </p>
               </div>
+                </>
+              )}
             </div>
           </div>
 

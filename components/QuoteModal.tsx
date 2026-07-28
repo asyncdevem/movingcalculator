@@ -144,11 +144,16 @@ export const QuoteModal: React.FC = () => {
               <div className="font-bold text-zinc-900 dark:text-white">
                 {quote.route.pickupAddress} &rarr; {quote.route.deliveryAddress}
               </div>
+              {quote.truck.selectedProvider === 'DTMM Truck' && quote.truck.dtmmDispatchLocation && (
+                <div className="text-zinc-600 dark:text-zinc-300 text-[10px] bg-red-50 dark:bg-red-950/30 p-2 rounded-lg border border-red-200 dark:border-red-900">
+                  <strong>Round-Trip Route:</strong> {quote.truck.dtmmDispatchLocation} → Pickup → Delivery → Return
+                </div>
+              )}
               <div className="text-zinc-600 dark:text-zinc-300">
                 Total Distance: <strong>{quote.route.distanceMiles} miles</strong> (~{quote.route.durationHours} hrs)
               </div>
               <div className="text-zinc-600 dark:text-zinc-300">
-                Logistics Schedule: <strong>{quote.route.drivingDays} driving days</strong> ({quote.route.hotelNights} hotel night/s)
+                Logistics Schedule: <strong>{quote.route.drivingDays} driving days</strong> ({quote.route.isManualHotel && quote.route.manualHotelNights !== undefined ? quote.route.manualHotelNights : quote.route.hotelNights} hotel night/s)
               </div>
               <div className="text-zinc-600 dark:text-zinc-300">
                 Fleet Allocated: <strong>{quote.truck.count}x {quote.truck.type}</strong> ({quote.truck.selectedProvider})
@@ -213,9 +218,19 @@ export const QuoteModal: React.FC = () => {
 
                   <tr>
                     <td className="py-3 px-4 font-bold">Driver Return Flight Allowance</td>
-                    <td className="py-3 px-4 text-zinc-500">Standard airfare return ticket per crew</td>
+                    <td className="py-3 px-4 text-zinc-500">
+                      {quote.truck.selectedProvider === 'DTMM Truck' ? 'N/A (drivers return in truck)' : 'Standard airfare return ticket per crew'}
+                    </td>
                     <td className="py-3 px-4 text-right font-mono font-bold">${quote.breakdown.flightCost.toLocaleString()}</td>
                   </tr>
+
+                  {quote.breakdown.extraDriverCost && quote.breakdown.extraDriverCost > 0 && (
+                    <tr>
+                      <td className="py-3 px-4 font-bold">DTMM Extra Driver</td>
+                      <td className="py-3 px-4 text-zinc-500">Additional driver for DTMM truck (flat fee)</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold">${quote.breakdown.extraDriverCost.toLocaleString()}</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

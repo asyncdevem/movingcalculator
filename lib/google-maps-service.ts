@@ -146,6 +146,52 @@ export async function calculateRouteDistance(
 }
 
 /**
+ * Calculates round-trip route for DTMM trucks.
+ * Route: DTMM Location → Pickup → Delivery → DTMM Location
+ */
+export async function calculateRoundTripRoute(
+  dtmmLocation: string,
+  pickup: string,
+  delivery: string
+): Promise<{ totalMiles: number; totalHours: number; isRealApi: boolean }> {
+  if (!dtmmLocation || !pickup || !delivery) {
+    return { totalMiles: 0, totalHours: 0, isRealApi: false };
+  }
+
+  try {
+    // Calculate three legs:
+    // Leg 1: DTMM → Pickup
+    const leg1 = await calculateRouteDistance(dtmmLocation, pickup);
+    
+    // Leg 2: Pickup → Delivery
+    const leg2 = await calculateRouteDistance(pickup, delivery);
+    
+    // Leg 3: Delivery → DTMM
+    const leg3 = await calculateRouteDistance(delivery, dtmmLocation);
+
+    const totalMiles = leg1.distanceMiles + leg2.distanceMiles + leg3.distanceMiles;
+    const totalHours = leg1.durationHours + leg2.durationHours + leg3.durationHours;
+    const isRealApi = leg1.isRealApi && leg2.isRealApi && leg3.isRealApi;
+
+    return {
+      totalMiles: Math.round(totalMiles),
+      totalHours: Math.round(totalHours * 10) / 10,
+      isRealApi,
+    };
+  } catch (err) {
+    console.warn('Round-trip route calculation error:', err);
+    
+    // Fallback: estimate as 2x the pickup to delivery distance
+    const directRoute = await calculateRouteDistance(pickup, delivery);
+    return {
+      totalMiles: Math.round(directRoute.distanceMiles * 2),
+      totalHours: Math.round(directRoute.durationHours * 2 * 10) / 10,
+      isRealApi: false,
+    };
+  }
+}
+
+/**
  * Parses pasted directions URLs to extract pickup & delivery location strings.
  */
 export function parseRouteUrl(url: string): { pickup?: string; delivery?: string } | null {

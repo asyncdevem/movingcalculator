@@ -10,12 +10,22 @@ export const DEFAULT_ADMIN_RATES: AdminRates = {
   flightDefaultCost: 300,
   profitMarginPercent: 30, // 30% margin (1.30 multiplier)
   hoursPerDrivingDay: 11, // Max 11 hours driving per day
+  dtmmDailyRate: 113, // DTMM truck rental per day per truck
+  dtmmExtraDriverFee: 500, // DTMM extra driver flat fee
 };
 
 // Weight-based calculation constants
 export const POUNDS_PER_TRUCK = 8000; // Max weight capacity per truck
 export const POUNDS_PER_MOVER_PER_HOUR = 600; // Each mover can handle 600 lbs/hour
 export const DEFAULT_MOVER_COUNT = 4; // Default number of movers
+
+// DTMM Dispatch Locations
+export const DTMM_DISPATCH_LOCATIONS = [
+  { name: 'Eau Claire', address: '3540 Jeffers Rd, Eau Claire, WI 54703' },
+  { name: 'Wausau', address: '1296 Kowalski Rd, Kronenwetter, WI 54455' },
+  { name: 'La Crosse', address: 'W6860 Industrial Blvd, Onalaska, WI 54650' },
+  { name: 'Rhinelander', address: '4497 County Hwy C, Rhinelander, WI 54501' },
+];
 
 /**
  * Calculates number of trucks needed based on total weight.
@@ -93,12 +103,13 @@ export function calculateTruckRates(miles: number, drivingDays: number): { uhaul
 
 /**
  * Calculates complete quote breakdown using company formulas:
- * - Driver Pay = Distance * driverPayPerMile * TruckCount
- * - Fuel = (Distance / MPG) * GasPrice * TruckCount
+ * - Driver Pay = Distance * driverPayPerMile * TruckCount (round-trip for DTMM)
+ * - Fuel = (Distance / MPG) * GasPrice * TruckCount (round-trip for DTMM)
  * - Hotel = HotelNights * HotelRate * TruckCount (per truck!)
  * - Labor = (Loading + Unloading OR HiredHelp) * TruckCount
- * - Flight = FlightCost * TruckCount (per driver/truck!)
- * - Truck Rental = (Manual Price OR Auto Rate) * TruckCount
+ * - Flight = FlightCost * TruckCount (per driver/truck!) - $0 for DTMM
+ * - Truck Rental = (Manual Price OR Auto Rate OR DTMM Daily) * TruckCount
+ * - Extra Driver = DTMM extra driver fee (flat, not per truck)
  * - Subtotal = Sum of all above
  * - Profit Amount = Subtotal * (Margin % / 100)
  * - Grand Total = Subtotal + Profit Amount
@@ -110,14 +121,17 @@ export function calculateQuoteBreakdown(
   hiredHelpCost?: number,
   useHiredHelp?: boolean
 ): QuoteBreakdown {
-  const miles = Math.max(0, route.distanceMiles);
+  const isDTMM = truck.selectedProvider === 'DTMM Truck';
+  const miles = isDTMM && truck.dtmmRoundTripMiles ? truck.dtmmRoundTripMiles : Math.max(0, route.distanceMiles);
   const truckCount = Math.max(1, truck.count);
-  const hotelNights = route.hotelNights;
+  const hotelNights = route.isManualHotel && route.manualHotelNights !== undefined 
+    ? route.manualHotelNights 
+    : route.hotelNights;
 
-  // 1. Employee Driving Pay
+  // 1. Employee Driving Pay (round-trip for DTMM)
   const driverPay = Math.round(miles * rates.driverPayPerMile * truckCount);
 
-  // 2. Fuel Calculation
+  // 2. Fuel Calculation (round-trip for DTMM)
   const fuelGallons = rates.mpg > 0 ? miles / rates.mpg : 0;
   const fuelCost = Math.round(fuelGallons * rates.gasPricePerGallon * truckCount);
 
@@ -141,25 +155,35 @@ export function calculateQuoteBreakdown(
   }
 
   // 5. Flight Cost (PER DRIVER/TRUCK - each driver needs return flight)
-  const flightCost = Math.round(rates.flightDefaultCost * truckCount);
+  // DTMM = $0 (drivers return in truck)
+  const flightCost = isDTMM ? 0 : Math.round(rates.flightDefaultCost * truckCount);
 
-  // 6. Truck Rental Cost (Manual Override OR Auto-Calculated)
-  let perTruckRental: number;
+  // 6. Truck Rental Cost
+  let truckRentalCost: number;
   
-  if (truck.isManualRental && truck.manualRentalPrice !== undefined) {
+  if (isDTMM) {
+    // DTMM: $113/day per truck
+    const dtmmDays = truck.dtmmDays || 1;
+    const dailyRate = truck.dtmmDailyRate || rates.dtmmDailyRate;
+    truckRentalCost = Math.round(dailyRate * dtmmDays * truckCount);
+  } else if (truck.isManualRental && truck.manualRentalPrice !== undefined) {
     // Use manually entered price
-    perTruckRental = truck.manualRentalPrice;
+    truckRentalCost = Math.round(truck.manualRentalPrice * truckCount);
   } else {
     // Use auto-calculated price from provider
-    perTruckRental = truck.selectedProvider === 'U-Haul' ? truck.uhaulRatePerTruck : truck.penskeRatePerTruck;
+    const perTruckRental = truck.selectedProvider === 'U-Haul' ? truck.uhaulRatePerTruck : truck.penskeRatePerTruck;
+    truckRentalCost = Math.round(perTruckRental * truckCount);
   }
-  
-  const truckRentalCost = Math.round(perTruckRental * truckCount);
 
-  // 7. Subtotal
-  const subtotal = driverPay + fuelCost + hotelCost + laborCost + flightCost + truckRentalCost;
+  // 7. DTMM Extra Driver (flat fee, not per truck)
+  const extraDriverCost = isDTMM && truck.hasExtraDriver 
+    ? (truck.extraDriverFee || rates.dtmmExtraDriverFee) 
+    : 0;
 
-  // 8. Profit & Grand Total
+  // 8. Subtotal
+  const subtotal = driverPay + fuelCost + hotelCost + laborCost + flightCost + truckRentalCost + extraDriverCost;
+
+  // 9. Profit & Grand Total
   const profitAmount = Math.round(subtotal * (rates.profitMarginPercent / 100));
   const grandTotal = subtotal + profitAmount;
 
@@ -174,6 +198,7 @@ export function calculateQuoteBreakdown(
     useHiredHelp,
     flightCost,
     truckRentalCost,
+    extraDriverCost: extraDriverCost > 0 ? extraDriverCost : undefined,
     subtotal,
     profitAmount,
     grandTotal,
