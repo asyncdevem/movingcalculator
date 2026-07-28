@@ -60,7 +60,11 @@ export const NewQuoteView: React.FC = () => {
   // 3. Truck options state
   const [truckType, setTruckType] = useState<TruckType>('26 ft Box Truck');
   const [truckCount, setTruckCount] = useState<number>(1);
-  const [providerOverride, setProviderOverride] = useState<'U-Haul' | 'Penske' | 'Auto'>('Auto');
+  
+  // 3a. Manual rental prices (no auto-calculation)
+  const [uhaulPrice, setUhaulPrice] = useState<number>(0);
+  const [penskePrice, setPenskePrice] = useState<number>(0);
+  const [selectedProvider, setSelectedProvider] = useState<'U-Haul' | 'Penske'>('U-Haul');
 
   // 3b. Weight-based calculations state
   const [totalWeight, setTotalWeight] = useState<number>(0);
@@ -69,15 +73,11 @@ export const NewQuoteView: React.FC = () => {
   const [unloadHours, setUnloadHours] = useState<number>(0);
   const [useWeightBasedTrucks, setUseWeightBasedTrucks] = useState<boolean>(false);
 
-  // 3c. Manual rental price override
-  const [isManualRental, setIsManualRental] = useState<boolean>(false);
-  const [manualRentalPrice, setManualRentalPrice] = useState<number>(0);
-
-  // 3d. Hired help option
+  // 3c. Hired help option
   const [useHiredHelp, setUseHiredHelp] = useState<boolean>(false);
   const [hiredHelpCost, setHiredHelpCost] = useState<number>(0);
 
-  // 3e. Flight price state
+  // 3d. Flight price state
   const [flightPricePerDriver, setFlightPricePerDriver] = useState<number>(0);
   const [isRealFlightPrice, setIsRealFlightPrice] = useState<boolean>(false);
 
@@ -126,13 +126,6 @@ export const NewQuoteView: React.FC = () => {
     [durationHours, customRates.hoursPerDrivingDay]
   );
 
-  const { uhaulRate, penskeRate, recommended } = useMemo(
-    () => calculateTruckRates(distanceMiles, drivingDays),
-    [distanceMiles, drivingDays]
-  );
-
-  const selectedProvider = providerOverride === 'Auto' ? recommended : providerOverride;
-
   const routeInfo: RouteInfo = useMemo(
     () => ({
       pickupAddress,
@@ -150,18 +143,18 @@ export const NewQuoteView: React.FC = () => {
     () => ({
       type: truckType,
       count: truckCount,
-      uhaulRatePerTruck: uhaulRate,
-      penskeRatePerTruck: penskeRate,
+      uhaulRatePerTruck: uhaulPrice,
+      penskeRatePerTruck: penskePrice,
       selectedProvider,
       totalWeight: totalWeight > 0 ? totalWeight : undefined,
       numberOfMovers: totalWeight > 0 ? numberOfMovers : undefined,
       loadHours: totalWeight > 0 ? loadHours : undefined,
       unloadHours: totalWeight > 0 ? unloadHours : undefined,
       isWeightBased: useWeightBasedTrucks,
-      isManualRental,
-      manualRentalPrice: isManualRental ? manualRentalPrice : undefined,
+      isManualRental: true, // Always manual now
+      manualRentalPrice: selectedProvider === 'U-Haul' ? uhaulPrice : penskePrice,
     }),
-    [truckType, truckCount, uhaulRate, penskeRate, selectedProvider, totalWeight, numberOfMovers, loadHours, unloadHours, useWeightBasedTrucks, isManualRental, manualRentalPrice]
+    [truckType, truckCount, uhaulPrice, penskePrice, selectedProvider, totalWeight, numberOfMovers, loadHours, unloadHours, useWeightBasedTrucks]
   );
 
   // Handler for weight calculation updates
@@ -251,7 +244,7 @@ Logistics: ${drivingDays} Driving Days | ${hotelNights} Hotel Night(s)
 
 TRUCK & LOGISTICS:
 Truck Type: ${truckCount}x ${truckType}
-Provider Selected: ${selectedProvider} ($${(selectedProvider === 'U-Haul' ? uhaulRate : penskeRate).toLocaleString()}/truck)
+Provider Selected: ${selectedProvider} ($${(selectedProvider === 'U-Haul' ? uhaulPrice : penskePrice).toLocaleString()}/truck)
 
 COST BREAKDOWN:
 - Driver Driving Pay: $${breakdown.driverPay.toLocaleString()}
@@ -560,26 +553,20 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
               </div>
             </div>
 
-            {/* Provider comparison cards */}
-            <div className="space-y-2">
+            {/* Provider selection and manual pricing */}
+            <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-bold text-zinc-300 gap-2">
-                <span className="uppercase">Rental Provider Rates Comparison:</span>
+                <span className="uppercase">Select Rental Provider:</span>
                 <div className="flex gap-2 text-[11px]">
                   <button
-                    onClick={() => setProviderOverride('Auto')}
-                    className={`px-2.5 py-1 rounded-lg font-bold uppercase transition-all ${providerOverride === 'Auto' ? 'bg-[#e62329] text-white' : 'bg-[#0b0b0e] text-zinc-400'}`}
-                  >
-                    Auto Select Cheapest
-                  </button>
-                  <button
-                    onClick={() => setProviderOverride('U-Haul')}
-                    className={`px-2.5 py-1 rounded-lg font-bold uppercase transition-all ${providerOverride === 'U-Haul' ? 'bg-[#e62329] text-white' : 'bg-[#0b0b0e] text-zinc-400'}`}
+                    onClick={() => setSelectedProvider('U-Haul')}
+                    className={`px-2.5 py-1 rounded-lg font-bold uppercase transition-all ${selectedProvider === 'U-Haul' ? 'bg-[#e62329] text-white' : 'bg-[#0b0b0e] text-zinc-400'}`}
                   >
                     U-Haul
                   </button>
                   <button
-                    onClick={() => setProviderOverride('Penske')}
-                    className={`px-2.5 py-1 rounded-lg font-bold uppercase transition-all ${providerOverride === 'Penske' ? 'bg-[#e62329] text-white' : 'bg-[#0b0b0e] text-zinc-400'}`}
+                    onClick={() => setSelectedProvider('Penske')}
+                    className={`px-2.5 py-1 rounded-lg font-bold uppercase transition-all ${selectedProvider === 'Penske' ? 'bg-[#e62329] text-white' : 'bg-[#0b0b0e] text-zinc-400'}`}
                   >
                     Penske
                   </button>
@@ -587,112 +574,88 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* U-Haul Card */}
                 <div
-                  onClick={() => setProviderOverride('U-Haul')}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                  className={`p-4 rounded-2xl border transition-all ${
                     selectedProvider === 'U-Haul'
                       ? 'bg-[#0b0b0e] text-white border-[#e62329] ring-2 ring-red-900/40'
                       : 'bg-[#0b0b0e]/60 border-[#22222a] opacity-70'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-3">
                     <span className="font-black text-xs uppercase tracking-wider">U-Haul Rental</span>
-                    {recommended === 'U-Haul' && (
+                    {selectedProvider === 'U-Haul' && (
                       <span className="text-[9px] uppercase font-black bg-[#e62329] text-white px-2 py-0.5 rounded-full">
-                        Cheapest Rate
+                        Selected
                       </span>
                     )}
                   </div>
-                  <div className="mt-2 text-2xl font-black text-white">
-                    ${uhaulRate.toLocaleString()} <span className="text-xs font-normal text-zinc-400">/truck</span>
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase">
+                      Price Per Truck
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-zinc-400 text-xs font-bold">$</span>
+                      <input
+                        type="number"
+                        value={uhaulPrice || ''}
+                        onChange={(e) => setUhaulPrice(Math.max(0, Number(e.target.value)))}
+                        placeholder="e.g. 1250"
+                        className="w-full pl-7 pr-3 py-2.5 bg-[#141419] border border-[#22222a] rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#e62329]"
+                      />
+                    </div>
                   </div>
-                  {truckCount > 1 && (
-                    <div className="text-[11px] text-zinc-400 font-semibold mt-1">
-                      Total ({truckCount} trucks): ${(uhaulRate * truckCount).toLocaleString()}
+                  {truckCount > 1 && uhaulPrice > 0 && (
+                    <div className="text-[11px] text-zinc-400 font-semibold mt-2">
+                      Total ({truckCount} trucks): ${(uhaulPrice * truckCount).toLocaleString()}
                     </div>
                   )}
                 </div>
 
+                {/* Penske Card */}
                 <div
-                  onClick={() => setProviderOverride('Penske')}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                  className={`p-4 rounded-2xl border transition-all ${
                     selectedProvider === 'Penske'
                       ? 'bg-[#0b0b0e] text-white border-[#e62329] ring-2 ring-red-900/40'
                       : 'bg-[#0b0b0e]/60 border-[#22222a] opacity-70'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-3">
                     <span className="font-black text-xs uppercase tracking-wider">Penske Rental</span>
-                    {recommended === 'Penske' && (
+                    {selectedProvider === 'Penske' && (
                       <span className="text-[9px] uppercase font-black bg-[#e62329] text-white px-2 py-0.5 rounded-full">
-                        Cheapest Rate
+                        Selected
                       </span>
                     )}
                   </div>
-                  <div className="mt-2 text-2xl font-black text-white">
-                    ${penskeRate.toLocaleString()} <span className="text-xs font-normal text-zinc-400">/truck</span>
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase">
+                      Price Per Truck
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-zinc-400 text-xs font-bold">$</span>
+                      <input
+                        type="number"
+                        value={penskePrice || ''}
+                        onChange={(e) => setPenskePrice(Math.max(0, Number(e.target.value)))}
+                        placeholder="e.g. 1300"
+                        className="w-full pl-7 pr-3 py-2.5 bg-[#141419] border border-[#22222a] rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#e62329]"
+                      />
+                    </div>
                   </div>
-                  {truckCount > 1 && (
-                    <div className="text-[11px] text-zinc-400 font-semibold mt-1">
-                      Total ({truckCount} trucks): ${(penskeRate * truckCount).toLocaleString()}
+                  {truckCount > 1 && penskePrice > 0 && (
+                    <div className="text-[11px] text-zinc-400 font-semibold mt-2">
+                      Total ({truckCount} trucks): ${(penskePrice * truckCount).toLocaleString()}
                     </div>
                   )}
                 </div>
               </div>
-            </div>
 
-            {/* Manual Rental Price Override */}
-            <div className="pt-4 border-t border-[#22222a] space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-zinc-300 uppercase">Rental Pricing Mode</label>
-                <div className="flex gap-2 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => setIsManualRental(false)}
-                    className={`px-3 py-1 rounded-lg font-bold uppercase transition-all ${
-                      !isManualRental ? 'bg-[#e62329] text-white' : 'bg-[#0b0b0e] text-zinc-400 hover:bg-[#1f1f27]'
-                    }`}
-                  >
-                    Auto Calculate
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsManualRental(true)}
-                    className={`px-3 py-1 rounded-lg font-bold uppercase transition-all ${
-                      isManualRental ? 'bg-[#e62329] text-white' : 'bg-[#0b0b0e] text-zinc-400 hover:bg-[#1f1f27]'
-                    }`}
-                  >
-                    Manual Entry
-                  </button>
-                </div>
-              </div>
-
-              {isManualRental && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1.5 uppercase">
-                    Enter Rental Price per Truck
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3 text-zinc-400 text-xs font-bold">$</span>
-                    <input
-                      type="number"
-                      value={manualRentalPrice || ''}
-                      onChange={(e) => setManualRentalPrice(Math.max(0, Number(e.target.value)))}
-                      placeholder="e.g. 1250"
-                      className="w-full pl-7 pr-3.5 py-2.5 bg-[#0b0b0e] border-2 border-[#e62329] rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#e62329]"
-                    />
-                  </div>
-                  <p className="text-[10px] text-zinc-400 mt-1">
-                    Total rental cost: ${(manualRentalPrice * truckCount).toLocaleString()} ({truckCount} truck{truckCount > 1 ? 's' : ''})
-                  </p>
-                </div>
-              )}
-
-              {!isManualRental && (
-                <p className="text-[10px] text-zinc-400 italic">
-                  Using auto-calculated {selectedProvider} rate: ${(selectedProvider === 'U-Haul' ? uhaulRate : penskeRate).toLocaleString()}/truck
+              <div className="p-3 bg-[#0b0b0e]/50 rounded-xl border border-[#22222a]">
+                <p className="text-[11px] text-zinc-400">
+                  <span className="font-bold text-white">💡 Tip:</span> Enter the actual quote you received from U-Haul or Penske. The selected provider's price will be used in the final calculation.
                 </p>
-              )}
+              </div>
             </div>
           </div>
 
