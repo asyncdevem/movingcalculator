@@ -935,10 +935,18 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
                 </div>
               )}
 
-              {!useHiredHelp && (
+              {!useHiredHelp && totalWeight > 0 && numberOfMovers > 0 && (
                 <div className="p-4 bg-[#0b0b0e]/50 rounded-xl border border-[#22222a]">
                   <p className="text-xs text-zinc-400">
-                    <span className="font-bold text-white">Standard Company Service:</span> Loading (${customRates.loadingCost}) + Unloading (${customRates.unloadingCost}) per truck
+                    <span className="font-bold text-white">Standard Company Service:</span> Hour-based labor calculation: {loadHours.toFixed(2)}h load + {unloadHours.toFixed(2)}h unload × {numberOfMovers} movers × ${customRates.laborRatePerHour}/hr
+                  </p>
+                </div>
+              )}
+
+              {!useHiredHelp && (!totalWeight || totalWeight === 0) && (
+                <div className="p-4 bg-[#0b0b0e]/50 rounded-xl border border-[#22222a]">
+                  <p className="text-xs text-zinc-400">
+                    <span className="font-bold text-white">Standard Company Service:</span> Enter weight above to calculate hour-based labor costs at ${customRates.laborRatePerHour}/hr per person
                   </p>
                 </div>
               )}
@@ -1080,7 +1088,11 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
               <div className="flex items-center justify-between text-zinc-300">
                 <span className="flex items-center gap-2">
                   <Users className="w-3.5 h-3.5 text-zinc-400" />
-                  Loading Labor (${customRates.loadingCost} × {truckCount})
+                  {totalWeight > 0 && numberOfMovers > 0 ? (
+                    `Loading Labor (${loadHours.toFixed(1)}h × ${numberOfMovers} @ $${customRates.laborRatePerHour}/hr)`
+                  ) : (
+                    'Loading Labor'
+                  )}
                 </span>
                 <span className="font-mono font-bold">${breakdown.loadingCost.toLocaleString()}</span>
               </div>
@@ -1088,9 +1100,15 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
               <div className="flex items-center justify-between text-zinc-300">
                 <span className="flex items-center gap-2">
                   <Users className="w-3.5 h-3.5 text-zinc-400" />
-                  Unloading Labor (${customRates.unloadingCost} × {truckCount})
+                  {totalWeight > 0 && numberOfMovers > 0 && !useHiredHelp ? (
+                    `Unloading Labor (${unloadHours.toFixed(1)}h × ${numberOfMovers} @ $${customRates.laborRatePerHour}/hr)`
+                  ) : useHiredHelp ? (
+                    'Hired Help (Unloading)'
+                  ) : (
+                    'Unloading Labor'
+                  )}
                 </span>
-                <span className="font-mono font-bold">${breakdown.unloadingCost.toLocaleString()}</span>
+                <span className="font-mono font-bold">${useHiredHelp && breakdown.hiredHelpCost ? breakdown.hiredHelpCost.toLocaleString() : breakdown.unloadingCost.toLocaleString()}</span>
               </div>
 
               <div className="flex items-center justify-between text-zinc-300">

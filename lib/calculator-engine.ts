@@ -5,8 +5,7 @@ export const DEFAULT_ADMIN_RATES: AdminRates = {
   mpg: 7,
   hotelRatePerNight: 200,
   driverPayPerMile: 0.50,
-  loadingCost: 600,
-  unloadingCost: 600,
+  laborRatePerHour: 75, // $75 per hour per person for loading/unloading
   flightDefaultCost: 300,
   profitMarginPercent: 30, // 30% margin (1.30 multiplier)
   hoursPerDrivingDay: 11, // Max 11 hours driving per day
@@ -106,7 +105,7 @@ export function calculateTruckRates(miles: number, drivingDays: number): { uhaul
  * - Driver Pay = Distance * driverPayPerMile * TruckCount (round-trip for DTMM)
  * - Fuel = (Distance / MPG) * GasPrice * TruckCount (round-trip for DTMM)
  * - Hotel = HotelNights * HotelRate * TruckCount (per truck!)
- * - Labor = (Loading + Unloading OR HiredHelp) * TruckCount
+ * - Labor = Hours-based calculation: (LoadHours + UnloadHours) × NumberOfMovers × LaborRate
  * - Flight = FlightCost * TruckCount (per driver/truck!) - $0 for DTMM
  * - Truck Rental = (Manual Price OR Auto Rate OR DTMM Daily) * TruckCount
  * - Extra Driver = DTMM extra driver fee (flat, not per truck)
@@ -138,20 +137,45 @@ export function calculateQuoteBreakdown(
   // 3. Hotel Calculation (PER TRUCK - each truck needs driver accommodations)
   const hotelCost = Math.round(hotelNights * rates.hotelRatePerNight * truckCount);
 
-  // 4. Labor (with hired help option)
-  const loadingCost = Math.round(rates.loadingCost * truckCount);
+  // 4. Labor Calculation - NEW HOUR-BASED SYSTEM
+  let loadingCost: number;
   let unloadingCost: number;
   let laborCost: number;
 
   if (useHiredHelp && hiredHelpCost !== undefined) {
     // Use hired help for unloading instead of company labor
+    // Loading still uses hour-based calculation
+    if (truck.totalWeight && truck.totalWeight > 0 && truck.numberOfMovers && truck.numberOfMovers > 0) {
+      const { loadHours } = calculateLoadUnloadHours(truck.totalWeight, truck.numberOfMovers);
+      const loadManHours = loadHours * truck.numberOfMovers;
+      loadingCost = Math.round(loadManHours * rates.laborRatePerHour);
+    } else {
+      // Fallback if no weight data
+      loadingCost = Math.round(600 * truckCount);
+    }
+    
     unloadingCost = 0; // Company doesn't do unloading
     const hiredHelp = Math.round(hiredHelpCost);
     laborCost = loadingCost + hiredHelp;
   } else {
-    // Standard company loading and unloading
-    unloadingCost = Math.round(rates.unloadingCost * truckCount);
-    laborCost = loadingCost + unloadingCost;
+    // Standard company loading and unloading - hour-based calculation
+    if (truck.totalWeight && truck.totalWeight > 0 && truck.numberOfMovers && truck.numberOfMovers > 0) {
+      const { loadHours, unloadHours } = calculateLoadUnloadHours(truck.totalWeight, truck.numberOfMovers);
+      
+      // Calculate man-hours for loading and unloading
+      const loadManHours = loadHours * truck.numberOfMovers;
+      const unloadManHours = unloadHours * truck.numberOfMovers;
+      
+      // Apply hourly rate
+      loadingCost = Math.round(loadManHours * rates.laborRatePerHour);
+      unloadingCost = Math.round(unloadManHours * rates.laborRatePerHour);
+      laborCost = loadingCost + unloadingCost;
+    } else {
+      // Fallback to flat rate per truck if no weight data provided
+      loadingCost = Math.round(600 * truckCount);
+      unloadingCost = Math.round(600 * truckCount);
+      laborCost = loadingCost + unloadingCost;
+    }
   }
 
   // 5. Flight Cost (PER DRIVER/TRUCK - each driver needs return flight)

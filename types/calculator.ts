@@ -57,8 +57,7 @@ export interface AdminRates {
   mpg: number; // e.g. 7
   hotelRatePerNight: number; // e.g. 200
   driverPayPerMile: number; // e.g. 0.50
-  loadingCost: number; // e.g. 600
-  unloadingCost: number; // e.g. 600
+  laborRatePerHour: number; // e.g. 75 ($ per hour per person for loading/unloading)
   flightDefaultCost: number; // e.g. 300 (now per driver/truck)
   profitMarginPercent: number; // e.g. 30 (for 1.30)
   hoursPerDrivingDay: number; // e.g. 11 (max hours per driving day)

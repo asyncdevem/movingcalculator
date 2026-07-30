@@ -171,31 +171,30 @@ export const AdminSettingsView: React.FC = () => {
               <div className="p-4 rounded-2xl bg-[#0b0b0e] border border-[#22222a] space-y-3">
                 <div className="flex items-center gap-2 font-black text-white uppercase text-[11px]">
                   <Users className="w-4 h-4 text-[#e62329]" />
-                  <span>Loading & Unloading Labor Costs</span>
+                  <span>Loading & Unloading Labor Rates</span>
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-zinc-400 mb-1">
-                    Loading Cost ($ / Truck)
+                    Labor Rate ($ / Hour / Person)
                   </label>
                   <input
                     type="number"
-                    value={formData.loadingCost}
-                    onChange={(e) => handleChange('loadingCost', parseInt(e.target.value))}
+                    value={formData.laborRatePerHour}
+                    onChange={(e) => handleChange('laborRatePerHour', parseInt(e.target.value))}
                     className="w-full px-3 py-2 bg-[#141419] border border-[#22222a] rounded-xl font-black text-white"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-400 mb-1">
-                    Unloading Cost ($ / Truck)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.unloadingCost}
-                    onChange={(e) => handleChange('unloadingCost', parseInt(e.target.value))}
-                    className="w-full px-3 py-2 bg-[#141419] border border-[#22222a] rounded-xl font-black text-white"
-                  />
+                  <p className="text-[10px] text-zinc-400 mt-1">
+                    Formula: (Weight ÷ Movers ÷ 600 lbs/hr) × Movers × Rate
+                  </p>
+                  <div className="mt-2 p-2 bg-[#141419] rounded-lg border border-[#22222a]">
+                    <p className="text-[10px] text-zinc-400">
+                      <strong className="text-white">Example:</strong> 10,000 lbs ÷ 4 movers ÷ 600 = 4.17 hrs each
+                      <br />Load: 4.17 hrs × 4 movers × ${formData.laborRatePerHour}/hr = ${Math.round(4.17 * 4 * formData.laborRatePerHour)}
+                      <br />Unload: 4.17 hrs × 4 movers × ${formData.laborRatePerHour}/hr = ${Math.round(4.17 * 4 * formData.laborRatePerHour)}
+                      <br /><strong className="text-[#e62329]">Total: ${Math.round(4.17 * 4 * formData.laborRatePerHour * 2)}</strong>
+                    </p>
+                  </div>
                 </div>
               </div>
 

@@ -151,10 +151,16 @@ export const WeightCalculator: React.FC<WeightCalculatorProps> = ({
             </div>
 
             {/* Formula Explanation */}
-            <div className="pt-3 border-t border-[#22222a]">
+            <div className="pt-3 border-t border-[#22222a] space-y-2">
               <p className="text-[10px] text-zinc-400 font-mono">
-                <span className="text-zinc-300 font-bold">Formula:</span> {totalWeight.toLocaleString()} lbs ÷{' '}
+                <span className="text-zinc-300 font-bold">Time Formula:</span> {totalWeight.toLocaleString()} lbs ÷{' '}
                 {numberOfMovers} movers ÷ {POUNDS_PER_MOVER_PER_HOUR} lbs/hr = {loadHours} hrs (each way)
+              </p>
+              <p className="text-[10px] text-zinc-400 font-mono">
+                <span className="text-zinc-300 font-bold">Labor Cost:</span> ({loadHours} + {unloadHours}) hrs × {numberOfMovers} movers × $75/hr/person
+              </p>
+              <p className="text-[10px] text-[#e62329] font-bold">
+                💰 Total man-hours: {(loadHours + unloadHours) * numberOfMovers} hours
               </p>
             </div>
           </div>

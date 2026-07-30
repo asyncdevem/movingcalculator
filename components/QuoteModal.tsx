@@ -211,7 +211,15 @@ export const QuoteModal: React.FC = () => {
                   <tr>
                     <td className="py-3 px-4 font-bold">Loading & Unloading Labor</td>
                     <td className="py-3 px-4 text-zinc-500">
-                      Loading (${quote.ratesUsed.loadingCost}) + Unloading (${quote.ratesUsed.unloadingCost}) × {quote.truck.count}
+                      {quote.truck.totalWeight && quote.truck.totalWeight > 0 && quote.truck.numberOfMovers ? (
+                        <>
+                          Load: {quote.truck.loadHours?.toFixed(2)}h × {quote.truck.numberOfMovers} movers × ${quote.ratesUsed.laborRatePerHour}/hr = ${quote.breakdown.loadingCost.toLocaleString()}
+                          <br />
+                          Unload: {quote.truck.unloadHours?.toFixed(2)}h × {quote.truck.numberOfMovers} movers × ${quote.ratesUsed.laborRatePerHour}/hr = ${quote.breakdown.unloadingCost.toLocaleString()}
+                        </>
+                      ) : (
+                        `Loading (${quote.breakdown.loadingCost.toLocaleString()}) + Unloading (${quote.breakdown.unloadingCost.toLocaleString()})`
+                      )}
                     </td>
                     <td className="py-3 px-4 text-right font-mono font-bold">${quote.breakdown.laborCost.toLocaleString()}</td>
                   </tr>
