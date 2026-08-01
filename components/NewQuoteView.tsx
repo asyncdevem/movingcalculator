@@ -18,6 +18,7 @@ import {
 import { GoogleMapsSelector } from '@/components/GoogleMapsSelector';
 import { WeightCalculator } from '@/components/WeightCalculator';
 import { FlightPriceFetcher } from '@/components/FlightPriceFetcher';
+import { CityAutocomplete } from '@/components/CityAutocomplete';
 import {
   MapPin,
   Truck,
@@ -381,39 +382,27 @@ GRAND TOTAL QUOTE: $${breakdown.grandTotal.toLocaleString()}
               </span>
             </div>
 
-            {/* Address fields */}
+            {/* Address fields with Autocomplete */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5 uppercase">
-                  Pickup Address / City
-                </label>
-                <input
-                  type="text"
-                  value={pickupAddress}
-                  onChange={(e) => {
-                    setPickupAddress(e.target.value);
-                    triggerRouteCalculation(e.target.value, deliveryAddress);
-                  }}
-                  placeholder="e.g. New York, NY"
-                  className="w-full px-3.5 py-2.5 bg-[#0b0b0e] border border-[#22222a] rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#e62329]"
-                />
-              </div>
+              <CityAutocomplete
+                label="Pickup Address / City"
+                value={pickupAddress}
+                onChange={(address, lat, lng) => {
+                  setPickupAddress(address);
+                  triggerRouteCalculation(address, deliveryAddress);
+                }}
+                placeholder="e.g. New York, NY"
+              />
 
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5 uppercase">
-                  Delivery Address / City
-                </label>
-                <input
-                  type="text"
-                  value={deliveryAddress}
-                  onChange={(e) => {
-                    setDeliveryAddress(e.target.value);
-                    triggerRouteCalculation(pickupAddress, e.target.value);
-                  }}
-                  placeholder="e.g. Miami, FL"
-                  className="w-full px-3.5 py-2.5 bg-[#0b0b0e] border border-[#22222a] rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#e62329]"
-                />
-              </div>
+              <CityAutocomplete
+                label="Delivery Address / City"
+                value={deliveryAddress}
+                onChange={(address, lat, lng) => {
+                  setDeliveryAddress(address);
+                  triggerRouteCalculation(pickupAddress, address);
+                }}
+                placeholder="e.g. Miami, FL"
+              />
             </div>
 
             {/* Paste Directions Link */}
